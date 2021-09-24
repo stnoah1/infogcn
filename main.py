@@ -164,7 +164,7 @@ class Processor():
                 adaptive=True,
                 num_set=self.arg.n_heads
             )
-        self.loss = nn.CrossEntropyLoss().cuda(output_device)
+        self.loss = LabelSmoothingCrossEntropy().cuda(output_device)
 
         if self.arg.weights:
             self.global_step = int(self.arg.weights[:-3].split('-')[-1])
