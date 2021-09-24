@@ -59,5 +59,8 @@ def get_parser():
     parser.add_argument('--lr-decay-rate', type=float, default=0.1, help='decay rate for learning rate')
     parser.add_argument('--warm_up_epoch', type=int, default=5)
 
+    # apex
+    parser.add_argument('--amp_opt_level', type=int, default=1, help='NVIDIA Apex AMP optimization level')
+
     return parser
 

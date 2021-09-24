@@ -30,6 +30,7 @@ import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
 
+import apex
 import wandb
 
 def init_seed(seed):
@@ -88,6 +89,15 @@ class Processor():
         self.best_acc_epoch = 0
 
         self.model = self.model.cuda(self.output_device)
+
+
+        self.model, self.optimizer = apex.amp.initialize(
+            self.model,
+            self.optimizer,
+            opt_level=f'O{self.arg.amp_opt_level}'
+        )
+        if self.arg.amp_opt_level != 1:
+            self.print_log('[WARN] nn.DataParallel is not yet supported by amp_opt_level != "O1"')
 
         if type(self.arg.device) is list:
             if len(self.arg.device) > 1:
@@ -273,7 +283,9 @@ class Processor():
             loss = self.loss(output, label)
             # backward
             self.optimizer.zero_grad()
-            loss.backward()
+            with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                scaled_loss.backward()
+
             self.optimizer.step()
 
             loss_value.append(loss.data.item())
