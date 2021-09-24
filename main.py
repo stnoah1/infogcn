@@ -25,6 +25,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from opts import get_parser
+from loss import LabelSmoothingCrossEntropy
 
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
