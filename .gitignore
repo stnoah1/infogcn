@@ -2,3 +2,4 @@ data
 *.sh
 wandb
 *_old.py
+__pycache__
