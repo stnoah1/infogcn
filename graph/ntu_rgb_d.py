@@ -6,10 +6,15 @@ from graph import tools
 
 num_node = 25
 self_link = [(i, i) for i in range(num_node)]
-inward_ori_index = [(1, 2), (2, 21), (3, 21), (4, 3), (5, 21), (6, 5), (7, 6),
-                    (8, 7), (9, 21), (10, 9), (11, 10), (12, 11), (13, 1),
-                    (14, 13), (15, 14), (16, 15), (17, 1), (18, 17), (19, 18),
-                    (20, 19), (22, 23), (23, 8), (24, 25), (25, 12)]
+inward_ori_index = [
+    (2, 1), (2, 21), (21, 3), (3, 4), #head
+    (21, 5), (5, 6), (6, 7), (7, 8), (8, 23), (23, 22), # left arm
+    (21, 9), (9, 10), (10, 11), (11, 12), (12, 25), (25, 24), # right arm
+    (1, 13), (13, 14), (14, 15),(15, 16), # left leg
+    (1, 17), (17, 18),  (18, 19),  (19, 20) # right leg
+]
+
+
 inward = [(i - 1, j - 1) for (i, j) in inward_ori_index]
 outward = [(j, i) for (i, j) in inward]
 neighbor = inward + outward
@@ -37,6 +42,7 @@ class Graph:
         self.inward = inward
         self.outward = outward
         self.neighbor = neighbor
+        self.A_outward_binary = tools.get_adjacency_matrix(self.outward, self.num_node)
         self.A = self.get_adjacency_matrix(labeling_mode)
         self.A1 = tools.get_spatial_graph(num_node_1, self_link_1, inward_1, outward_1)
         self.A2 = tools.get_spatial_graph(num_node_2, self_link_2, inward_2, outward_2)

@@ -1,2 +1,4 @@
 data
 *.sh
+wandb
+*_old.py
