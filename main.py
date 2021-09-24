@@ -91,13 +91,14 @@ class Processor():
         self.model = self.model.cuda(self.output_device)
 
 
-        self.model, self.optimizer = apex.amp.initialize(
-            self.model,
-            self.optimizer,
-            opt_level=f'O{self.arg.amp_opt_level}'
-        )
-        if self.arg.amp_opt_level != 1:
-            self.print_log('[WARN] nn.DataParallel is not yet supported by amp_opt_level != "O1"')
+        if self.arg.half:
+            self.model, self.optimizer = apex.amp.initialize(
+                self.model,
+                self.optimizer,
+                opt_level=f'O{self.arg.amp_opt_level}'
+            )
+            if self.arg.amp_opt_level != 1:
+                self.print_log('[WARN] nn.DataParallel is not yet supported by amp_opt_level != "O1"')
 
         if type(self.arg.device) is list:
             if len(self.arg.device) > 1:
@@ -283,8 +284,11 @@ class Processor():
             loss = self.loss(output, label)
             # backward
             self.optimizer.zero_grad()
-            with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                scaled_loss.backward()
+            if self.arg.half:
+                with apex.amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                loss.backward()
 
             self.optimizer.step()
 

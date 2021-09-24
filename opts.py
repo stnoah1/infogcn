@@ -37,7 +37,7 @@ def get_parser():
 
     # feeder
     parser.add_argument('--feeder', default='feeders.feeder_ntu.Feeder', help='data loader will be used')
-    parser.add_argument('--num-worker', type=int, default=32, help='the number of worker for data loader')
+    parser.add_argument('--num-worker', type=int, default=8, help='the number of worker for data loader')
 
     # model
     parser.add_argument('--model', default=None, help='the model will be used')
@@ -60,6 +60,7 @@ def get_parser():
     parser.add_argument('--warm_up_epoch', type=int, default=5)
 
     # apex
+    parser.add_argument('--half', action='store_true', help='Use half-precision (FP16) training')
     parser.add_argument('--amp_opt_level', type=int, default=1, help='NVIDIA Apex AMP optimization level')
 
     return parser
