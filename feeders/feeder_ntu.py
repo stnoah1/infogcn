@@ -49,11 +49,11 @@ class Feeder(Dataset):
         npz_data = np.load(self.data_path)
         if self.split == 'train':
             self.data = npz_data['x_train']
-            self.label = np.where(npz_data['y_train'] > 0)[1]
+            self.label = np.argmax(npz_data['y_train'], axis=-1)
             self.sample_name = ['train_' + str(i) for i in range(len(self.data))]
         elif self.split == 'test':
             self.data = npz_data['x_test']
-            self.label = np.where(npz_data['y_test'] > 0)[1]
+            self.label = np.argmax(npz_data['y_test'], axis=-1)
             self.sample_name = ['test_' + str(i) for i in range(len(self.data))]
         else:
             raise NotImplementedError('data split only supports train/test')
