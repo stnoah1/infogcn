@@ -271,15 +271,14 @@ class TCN_GCN_unit(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, graph_args=dict(), in_channels=3,
-                 drop_out=0, adaptive=True):
+    def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3, drop_out=0, adaptive=True):
         super(Model, self).__init__()
 
         if graph is None:
             raise ValueError()
         else:
             Graph = import_class(graph)
-            self.graph = Graph(**graph_args)
+            self.graph = Graph()
 
         A = self.graph.A # 3,25,25
 
