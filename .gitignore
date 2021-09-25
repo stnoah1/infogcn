@@ -3,3 +3,4 @@ data
 wandb
 *_old.py
 __pycache__
+*ipynb

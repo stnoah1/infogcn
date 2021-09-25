@@ -78,15 +78,13 @@ def repeat_rot_mat(rot_mat, num):
     return res
 
 
-
-def align_skeleton(data_path='data/ntu120/xsub/val_data_joint.npy'):
-    data = np.load(data_path)
+def align_skeleton(data):
     N, C, T, V, M = data.shape
     trans_data = np.zeros_like(data)
     for i in tqdm(range(N)):
         for p in range(M):
             sample = data[i][..., p]
-            if np.all((sample == 0)):
+            if np.all((sample[:,0,:] == 0)):
                 continue
             d = sample[:,0,0:1]
             v1 = sample[:,0,1]-sample[:,0,0]
@@ -94,8 +92,8 @@ def align_skeleton(data_path='data/ntu120/xsub/val_data_joint.npy'):
             v2_ = sample[:,0,12]-sample[:,0,16]
             proj_v2_v1 = np.dot(v1.T,v2_)*v1/np.linalg.norm(v1)
             v2 = v2_-np.squeeze(proj_v2_v1)
-            v2 = v2/np.linalg.norm(v2)
-            v3 = np.cross(v2,v1)/np.linalg.norm(np.cross(v2,v1))
+            v2 = v2/(np.linalg.norm(v2))
+            v3 = np.cross(v2,v1)/(np.linalg.norm(np.cross(v2,v1)))
             v1 = np.reshape(v1,(3,1))
             v2 = np.reshape(v2,(3,1))
             v3 = np.reshape(v3,(3,1))
@@ -104,27 +102,27 @@ def align_skeleton(data_path='data/ntu120/xsub/val_data_joint.npy'):
             for t in range(T):
                 trans_sample = (np.linalg.inv(R))@(sample[:,t,:] - d)
                 trans_data[i, :, t, :, p] = trans_sample
-    np.save(data_path.replace(".npy", "_align.npy"), trans_data)
+    return trans_data
 
-def clean_miss_aligned_skeleton(
-    data_path='./data/ntu/NTU60_CS_aligned.npz',
-):
-    data = np.load(data_path)
 
-    clean_data = []
-    clean_label = []
-    for i, (item, label) in enumerate(zip(data['x_train'], data['y_train'])):
-        if np.sum(np.isnan(item)) > 0:
-            print(i)
-            continue
-        clean_data.append(item)
-        clean_label.append(label)
+def create_aligned_dataset(file_list=['data/ntu/NTU60_CS.npz', 'data/ntu/NTU60_CV.npz']):
+    for file in file_list:
+        org_data = np.load(file)
+        splits = ['x_train', 'x_test']
+        aligned_set = {}
+        for split in splits:
+            data = org_data[split]
+            N, T, _ = data.shape
+            data = data.reshape((N, T, 2, 25, 3)).transpose(0, 4, 1, 3, 2)
+            aligned_data = align_skeleton(data)
+            aligned_data = aligned_data.transpose(0, 2, 4, 3, 1).reshape(N, T, -1)
+            aligned_set[split] = aligned_data
 
-    # clean_data = np.stack(clean_data, axis=0)
-    # clean_labels = [clean_path, clean_label]
-    # np.save(data_path, clean_data)
-    # with open(label_path,'wb') as f:
-        # pickle.dump(clean_labels, f)
+        np.savez(file.replace('.npz', '_aligned.npz'),
+                 x_train=aligned_set['x_train'],
+                 y_train=org_data['y_train'],
+                 x_test=aligned_set['x_test'],
+                 y_test=org_data['y_test'])
 
 
 
@@ -201,4 +199,4 @@ def get_attn(x, mask= None, similarity='scaled_dot'):
     return embd, attn
 
 if __name__ == "__main__":
-    clean_miss_aligned_skeleton()
+    create_aligned_dataset()
