@@ -167,7 +167,7 @@ class Processor():
             ).cuda(output_device)
         elif self.arg.model == 'CTRGCN':
             from model.ctrgcn import Model
-            self.model = ModelwV(
+            self.model = Model(
                 num_class=self.arg.num_class,
                 num_point=self.arg.num_point,
                 num_person=self.arg.num_person,

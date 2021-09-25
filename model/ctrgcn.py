@@ -173,7 +173,7 @@ class CTRGC(nn.Module):
         x1, x2, x3 = self.conv1(x).mean(-2), self.conv2(x).mean(-2), self.conv3(x)
         x1 = self.tanh(x1.unsqueeze(-1) - x2.unsqueeze(-2))
         x1 = self.conv4(x1) * alpha + (A.unsqueeze(0).unsqueeze(0) if A is not None else 0)  # N,C,V,V
-        x1 = torch.einsum('ncuv,nctv->nctu', x1, x3)
+        x1 = torch.einsum('ncuv,nctv->nctu', x1, x3.float())
         return x1
 
 class unit_tcn(nn.Module):
