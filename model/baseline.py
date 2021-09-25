@@ -233,7 +233,7 @@ class ModelwV(nn.Module):
     def forward(self, x):
         N, C, T, V, M = x.size()
 
-        x = x.permute(0, 4, 2, 3, 5, 1).contiguous().view(N*M*T, V, C)
+        x = x.permute(0, 4, 2, 3, 1).contiguous().view(N*M*T, V, C)
         x = self.A_vector.to(x.device).expand(N*M*T, -1, -1) @ x
         x = x.view(N, M, T, V, C)
         x = x.permute(0, 1, 3, 4, 2).contiguous().view(N, M * V *  C, T)
