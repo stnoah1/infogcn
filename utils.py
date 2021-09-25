@@ -77,17 +77,18 @@ def repeat_rot_mat(rot_mat, num):
         res[:, 3*i:3*(i+1), 3*i:3*(i+1)] = rot_mat
     return res
 
-
 def align_skeleton(data):
     N, C, T, V, M = data.shape
     trans_data = np.zeros_like(data)
     for i in tqdm(range(N)):
         for p in range(M):
             sample = data[i][..., p]
-            if np.all((sample[:,0,:] == 0)):
-                continue
-            d = sample[:,0,0:1]
+            # if np.all((sample[:,0,:] == 0)):
+                # continue
+            d = sample[:,0,1:2]
             v1 = sample[:,0,1]-sample[:,0,0]
+            if np.linalg.norm(v1) <= 0.0:
+                continue
             v1 = v1/np.linalg.norm(v1)
             v2_ = sample[:,0,12]-sample[:,0,16]
             proj_v2_v1 = np.dot(v1.T,v2_)*v1/np.linalg.norm(v1)
@@ -100,10 +101,9 @@ def align_skeleton(data):
 
             R = np.hstack([v2,v3,v1])
             for t in range(T):
-                trans_sample = (np.linalg.inv(R))@(sample[:,t,:] - d)
+                trans_sample = (np.linalg.inv(R))@(sample[:,t,:]) # -d
                 trans_data[i, :, t, :, p] = trans_sample
     return trans_data
-
 
 def create_aligned_dataset(file_list=['data/ntu/NTU60_CS.npz', 'data/ntu/NTU60_CV.npz']):
     for file in file_list:
