@@ -15,6 +15,10 @@ import csv
 import numpy as np
 import glob
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 # torch
 import torch
 import torch.backends.cudnn as cudnn
@@ -29,6 +33,7 @@ from opts import get_pretrain_parser
 from loss import ReconLoss
 from utils import get_masked_input_and_labels
 from model.port import MORT
+from vis import plot_attention_weights
 
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -298,7 +303,7 @@ class Processor():
             loss_value.append(loss.data.item())
             timer['model'] += self.split_time()
 
-            self.train_writer.add_scalar('loss', loss.data.item(), self.global_step)
+            self.train_writer.add_scalar('total_loss', loss.data.item(), self.global_step)
 
             # statistics
             self.lr = self.optimizer.param_groups[0]['lr']
@@ -346,7 +351,12 @@ class Processor():
                     )
 
                     # forward
-                    output, _, _ = self.model(data)
+                    output, attns, _ = self.model(data)
+
+                    if batch_idx == 0:
+                        plot_attention_weights([attn[0].cpu() for attn in attns])
+                        wandb.log({"Attentions": plt}, step=self.global_step)
+
                     loss = self.loss(output, gt)
 
                     loss_value.append(loss.data.item())
@@ -360,7 +370,7 @@ class Processor():
                 self.best_loss_epoch = epoch + 1
 
             if self.arg.phase == 'train':
-                self.val_writer.add_scalar('loss', loss, self.global_step)
+                self.val_writer.add_scalar('total_loss', loss, self.global_step)
 
             self.print_log('\tMean {} loss of {} batches: {}.'.format(
                 ln, len(self.data_loader[ln]), np.mean(loss_value)))
