@@ -381,12 +381,13 @@ class Processor():
                     state_dict = self.model.state_dict()
                     weights = OrderedDict([[k.split('module.')[-1], v.cpu()] for k, v in state_dict.items()])
 
-                    torch.save(weights, 'recent.pt')
+                    torch.save(weights, os.path.join(self.arg.work_dir, 'recent.pt'))
 
-                    if self.eval_loss < self.best_loss:
-                        self.best_loss = loss
+                    if epoch > 30 and self.eval_loss < self.best_loss:
+                        self.best_loss = self.eval_loss
                         self.best_loss_epoch = epoch + 1
-                        os.rename('recent.pt', self.arg.model_saved_name + '-' + str(epoch+1) + '-' + str(int(self.global_step)) + '.pt')
+                        os.rename(os.path.join(self.arg.work_dir, 'recent.pt'),
+                                  self.arg.model_saved_name + '-' + str(epoch+1) + '-' + str(int(self.global_step)) + '.pt')
 
 
 
