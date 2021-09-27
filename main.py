@@ -152,7 +152,7 @@ class Processor():
                 drop_out=0,
                 adaptive=True,
                 num_set=self.arg.n_heads
-            ).cuda(output_device)
+            )
         elif self.arg.model == 'STGCN_V':
             from model.baseline import ModelwV
             self.model = ModelwV(
@@ -164,7 +164,7 @@ class Processor():
                 drop_out=0,
                 adaptive=True,
                 num_set=self.arg.n_heads
-            ).cuda(output_device)
+            )
         elif self.arg.model == 'STGCN_A':
             from model.baseline import ModelwA
             self.model = ModelwA(
@@ -176,7 +176,7 @@ class Processor():
                 drop_out=0,
                 adaptive=True,
                 num_set=self.arg.n_heads
-            ).cuda(output_device)
+            )
         elif self.arg.model == 'CTRGCN':
             from model.ctrgcn import Model
             self.model = Model(
@@ -187,7 +187,7 @@ class Processor():
                 in_channels=3,
                 drop_out=0,
                 adaptive=True,
-            ).cuda(output_device)
+            )
         self.loss = LabelSmoothingCrossEntropy().cuda(output_device)
 
         if self.arg.weights:
