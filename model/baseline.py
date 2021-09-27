@@ -325,18 +325,18 @@ class ModelwV(nn.Module):
         self.num_class = num_class
         self.num_point = num_point
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
-        base_channel = 96
+        base_channel = 64
 
-        self.l1 = TCN_aGCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
-        self.l2 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l3 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l4 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l5 = TCN_aGCN_unit(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
-        self.l6 = TCN_aGCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
-        self.l7 = TCN_aGCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
-        self.l8 = TCN_aGCN_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
-        self.l9 = TCN_aGCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
-        self.l10 = TCN_aGCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.l1 = TCN_GCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
+        self.l2 = TCN_GCN_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l3 = TCN_GCN_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l4 = TCN_GCN_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l5 = TCN_GCN_unit(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
+        self.l6 = TCN_GCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l7 = TCN_GCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l8 = TCN_GCN_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
+        self.l9 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.l10 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
         self.fc = nn.Linear(base_channel*4, num_class)
         nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
         bn_init(self.data_bn, 1)
@@ -387,18 +387,18 @@ class ModelwA(nn.Module):
         self.num_class = num_class
         self.num_point = num_point
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
-        base_channel = 96
+        base_channel = 64
 
-        self.l1 = TCN_GCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
-        self.l2 = TCN_GCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l3 = TCN_GCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l4 = TCN_GCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l5 = TCN_GCN_unit(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
-        self.l6 = TCN_GCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
-        self.l7 = TCN_GCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
-        self.l8 = TCN_GCN_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
-        self.l9 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
-        self.l10 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.l1 = TCN_aGCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
+        self.l2 = TCN_aGCN_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l3 = TCN_aGCN_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l4 = TCN_aGCN_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l5 = TCN_aGCN_unit(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
+        self.l6 = TCN_aGCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l7 = TCN_aGCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l8 = TCN_aGCN_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
+        self.l9 = TCN_aGCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.l10 = TCN_aGCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
         self.fc = nn.Linear(base_channel*4, num_class)
         nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
         bn_init(self.data_bn, 1)

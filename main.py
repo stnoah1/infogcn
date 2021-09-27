@@ -165,9 +165,9 @@ class Processor():
                 adaptive=True,
                 num_set=self.arg.n_heads
             )
-        elif self.arg.model == 'STGCN_V':
-            from model.baseline import ModelwV
-            self.model = ModelwV(
+        elif self.arg.model == 'STGCN_A':
+            from model.baseline import ModelwA
+            self.model = ModelwA(
                 num_class=self.arg.num_class,
                 num_point=self.arg.num_point,
                 num_person=self.arg.num_person,
