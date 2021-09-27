@@ -328,6 +328,68 @@ class ModelwV(nn.Module):
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
         base_channel = 96
 
+        self.l1 = TCN_aGCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
+        self.l2 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive)
+        self.l3 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive)
+        self.l4 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive)
+        self.l5 = TCN_aGCN_unit(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
+        self.l6 = TCN_aGCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l7 = TCN_aGCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l8 = TCN_aGCN_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
+        self.l9 = TCN_aGCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.l10 = TCN_aGCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.fc = nn.Linear(base_channel*4, num_class)
+        nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
+        bn_init(self.data_bn, 1)
+        if drop_out:
+            self.drop_out = nn.Dropout(drop_out)
+        else:
+            self.drop_out = lambda x: x
+
+    def forward(self, x):
+        N, C, T, V, M = x.size()
+
+        x = x.permute(0, 4, 2, 3, 1).contiguous().view(N*M*T, V, C)
+        x = self.A_vector.to(x.device).expand(N*M*T, -1, -1) @ x
+        x = x.view(N, M, T, V, C)
+        x = x.permute(0, 1, 3, 4, 2).contiguous().view(N, M * V *  C, T)
+        x = self.data_bn(x)
+        x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V)
+        x = self.l1(x)
+        x = self.l2(x)
+        x = self.l3(x)
+        x = self.l4(x)
+        x = self.l5(x)
+        x = self.l6(x)
+        x = self.l7(x)
+        x = self.l8(x)
+        x = self.l9(x)
+        x = self.l10(x)
+
+        # N*M,C,T,V
+        c_new = x.size(1)
+        x = x.view(N, M, c_new, -1)
+        x = x.mean(3).mean(1)
+        x = self.drop_out(x)
+
+        return self.fc(x)
+
+class ModelwA(nn.Module):
+    def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3,
+                 drop_out=0, adaptive=True, num_set=3):
+        super(ModelwA, self).__init__()
+
+        Graph = import_class(graph)
+        self.graph = Graph()
+        A_outward = Graph().A_outward_binary
+        self.A_vector = torch.eye(num_point) - A_outward
+
+        A = np.stack([np.eye(num_point)] * num_set, axis=0)
+        self.num_class = num_class
+        self.num_point = num_point
+        self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
+        base_channel = 96
+
         self.l1 = TCN_GCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
         self.l2 = TCN_GCN_unit(base_channel, base_channel,A, adaptive=adaptive)
         self.l3 = TCN_GCN_unit(base_channel, base_channel,A, adaptive=adaptive)
@@ -374,11 +436,12 @@ class ModelwV(nn.Module):
 
         return self.fc(x)
 
-class ModelwA(nn.Module):
+
+class ModelwP(nn.Module):
     def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3,
                  drop_out=0, adaptive=True,
                  embd_dim=64, n_layers=6, n_heads=8, pretrain_weight=None, freeze_port=True):
-        super(ModelwA, self).__init__()
+        super(ModelwP, self).__init__()
 
         Graph = import_class(graph)
         self.graph = Graph()
@@ -386,15 +449,17 @@ class ModelwA(nn.Module):
         self.A_vector = torch.eye(num_point) - A_outward
 
         A = np.stack([np.eye(num_point)] * n_heads, axis=0)
+        self.freeze_port = freeze_port
+        self.n_heads = n_heads
         self.num_class = num_class
         self.num_point = num_point
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
         base_channel = 64
 
         self.l1 = TCN_aGCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive, use_port=True)
-        self.l2 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive, use_port=True)
-        self.l3 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive, use_port=True)
-        self.l4 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive, use_port=True)
+        self.l2 = TCN_aGCN_unit(base_channel, base_channel, A, adaptive=adaptive, use_port=True)
+        self.l3 = TCN_aGCN_unit(base_channel, base_channel, A, adaptive=adaptive, use_port=True)
+        self.l4 = TCN_aGCN_unit(base_channel, base_channel, A, adaptive=adaptive, use_port=True)
         self.l5 = TCN_aGCN_unit(base_channel, base_channel*2, A, stride=2, adaptive=adaptive, use_port=True)
         self.l6 = TCN_aGCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive, use_port=True)
         self.l7 = TCN_aGCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive, use_port=True)
@@ -448,9 +513,13 @@ class ModelwA(nn.Module):
         x = self.l3(x, attn=attn)
         x = self.l4(x, attn=attn)
         x = self.l5(x, attn=attn)
+        attn = attn.view(N*M, 2, T//2, self.n_heads, V, V)
+        attn = attn.mean(dim=1).view(N*M*T//2, self.n_heads, V, V)
         x = self.l6(x, attn=attn)
         x = self.l7(x, attn=attn)
         x = self.l8(x, attn=attn)
+        attn = attn.view(N*M, 2, T//4, self.n_heads, V, V)
+        attn = attn.mean(dim=1).view(N*M*T//4, self.n_heads, V, V)
         x = self.l9(x, attn=attn)
         x = self.l10(x, attn=attn)
 
