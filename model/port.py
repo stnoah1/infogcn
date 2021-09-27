@@ -84,7 +84,7 @@ class Attention(nn.Module):
         out = einsum('b h i j, b h j d -> b h i d', attn, v.float())
         out = rearrange(out, 'b h n d -> b n (h d)')
         out =  self.to_out(out)
-        return out, attn
+        return out, dots
 
 class TransformerEncoder(nn.Module):
     def __init__(self, dim, heads, dim_head, mlp_dim, dropout):

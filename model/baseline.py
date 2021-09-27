@@ -59,19 +59,20 @@ class unit_tcn(nn.Module):
 
 class SelfAttention(nn.Module):
     def __init__(self, in_channels, hidden_dim, n_heads):
-        self.scale = self.hidden_dim ** -0.5
-        inner_dim = self.hidden_dim * n_heads
+        super(SelfAttention, self).__init__()
+        self.scale = hidden_dim ** -0.5
+        inner_dim = hidden_dim * n_heads
         self.to_qk = nn.Conv2d(in_channels, inner_dim*2, 1)
+        self.n_heads = n_heads
 
     def forward(self, x):
         y = self.to_qk(x)
         qk = y.chunk(2, dim=1)
-        q, k = map(lambda t: rearrange(t, 'b (h d) t v -> (b t) h v d', h=self.num_subset), qk)
+        q, k = map(lambda t: rearrange(t, 'b (h d) t v -> (b t) h v d', h=self.n_heads), qk)
 
         # attention
         dots = einsum('b h i d, b h j d -> b h i j', q, k)*self.scale
-        attn = dots.softmax(dim=-1).float()
-        return attn
+        return dots
 
 
 
@@ -152,10 +153,8 @@ class unit_agcn(nn.Module):
             self.A = Variable(torch.from_numpy(A.astype(np.float32)), requires_grad=False)
 
         self.conv_d = nn.ModuleList()
-        self.layer_norm = nn.ModuleList()
         for i in range(self.num_subset):
             self.conv_d.append(nn.Conv2d(in_channels, out_channels, 1))
-            self.layer_norm.append(nn.LayerNorm(in_channels, eps=1e-12))
 
         if in_channels != out_channels:
             self.down = nn.Sequential(
@@ -177,12 +176,11 @@ class unit_agcn(nn.Module):
         for i in range(self.num_subset):
             conv_branch_init(self.conv_d[i], self.num_subset)
 
-        if not use_port:
-            if in_channels == 3:
-                rel_channels = 8
-            else:
-                rel_channels = in_channels //  8
-            self.attn = SelfAttention(in_channels, rel_channels, self.num_subset)
+        if in_channels == 3:
+            rel_channels = 8
+        else:
+            rel_channels = in_channels //  8
+        self.attn = SelfAttention(in_channels, rel_channels, self.num_subset)
 
 
     def forward(self, x, attn=None):
@@ -193,14 +191,15 @@ class unit_agcn(nn.Module):
             A = self.PA
         else:
             A = self.A.cuda(x.get_device())
-        if attn is None:
-            attn = self.attn(x)
-        A = A.unsqueeze(0) + attn
+        adapt_attn = self.attn(x)
+        A = A.unsqueeze(0) + adapt_attn
+        if attn is not None:
+            A += attn
+        A = A.softmax(dim=-1).float()
         for i in range(self.num_subset):
             A1 = A[:, i, :, :] # (nt)vv
             A2 = rearrange(x, 'n c t v -> (n t) v c')
             z = A1@A2
-            z = self.layer_norm[i](z)
             z = rearrange(z, '(n t) v c->n c t v', t=T).contiguous()
             z = self.conv_d[i](z)
             y = z + y if y is not None else z

@@ -384,7 +384,7 @@ class Processor():
 
                     torch.save(weights, os.path.join(self.arg.work_dir, 'recent.pt'))
 
-                    if epoch > 30 and self.eval_loss < self.best_loss:
+                    if epoch > self.arg.save_epoch and self.eval_loss < self.best_loss:
                         self.best_loss = self.eval_loss
                         self.best_loss_epoch = epoch + 1
                         os.rename(os.path.join(self.arg.work_dir, 'recent.pt'),

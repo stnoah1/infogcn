@@ -30,7 +30,7 @@ def get_parser():
     parser.add_argument('--seed', type=int, default=1, help='random seed for pytorch')
     parser.add_argument('--log-interval', type=int, default=100, help='the interval for printing messages (#iteration)')
     parser.add_argument('--save-interval', type=int, default=1, help='the interval for storing models (#iteration)')
-    parser.add_argument('--save-epoch', type=int, default=30, help='the start epoch to save model (#iteration)')
+    parser.add_argument('--save-epoch', type=int, default=25, help='the start epoch to save model (#iteration)')
     parser.add_argument('--eval-interval', type=int, default=5, help='the interval for evaluating models (#iteration)')
     parser.add_argument('--print-log', type=str2bool, default=True, help='print logging or not')
     parser.add_argument('--show-topk', type=int, default=[1, 5], nargs='+', help='which Top K accuracy will be shown')
@@ -65,7 +65,7 @@ def get_parser():
     parser.add_argument('--num-epoch', type=int, default=65, help='stop training in which epoch')
     parser.add_argument('--weight-decay', type=float, default=0.0004, help='weight decay for optimizer')
     parser.add_argument('--lr-decay-rate', type=float, default=0.1, help='decay rate for learning rate')
-    parser.add_argument('--warm_up_epoch', type=int, default=5)
+    parser.add_argument('--warm-up-epoch', type=int, default=5)
 
     # apex
     parser.add_argument('--half', action='store_true', help='Use half-precision (FP16) training')
