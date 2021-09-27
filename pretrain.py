@@ -350,6 +350,7 @@ class Processor():
                     if batch_idx == 0:
                         plot_attention_weights([attn[0].cpu() for attn in attns])
                         wandb.log({"Attentions": plt}, step=self.global_step)
+                        plt.clf()
 
                     loss = self.loss(output, gt)
 
