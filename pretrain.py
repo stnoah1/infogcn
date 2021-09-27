@@ -252,7 +252,7 @@ class Processor():
         self.record_time()
         return split_time
 
-    def train(self, epoch, save_model=False):
+    def train(self, epoch):
         self.model.train()
         self.print_log('Training epoch: {}'.format(epoch + 1))
         loader = self.data_loader['train']
@@ -318,12 +318,6 @@ class Processor():
         self.print_log('\tMean training loss: {:.4f}. '.format(np.mean(loss_value)))
         self.print_log('\tTime consumption: [Data]{dataloader}, [Network]{model}'.format(**proportion))
 
-        if save_model:
-            state_dict = self.model.state_dict()
-            weights = OrderedDict([[k.split('module.')[-1], v.cpu()] for k, v in state_dict.items()])
-
-            torch.save(weights, self.arg.model_saved_name + '-' + str(epoch+1) + '-' + str(int(self.global_step)) + '.pt')
-
     def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None):
         if wrong_file is not None:
             f_w = open(wrong_file, 'w')
@@ -363,14 +357,10 @@ class Processor():
 
                     step += 1
 
-            loss = np.mean(loss_value)
-
-            if loss < self.best_loss:
-                self.best_loss = loss
-                self.best_loss_epoch = epoch + 1
+            self.eval_loss = np.mean(loss_value)
 
             if self.arg.phase == 'train':
-                self.val_writer.add_scalar('total_loss', loss, self.global_step)
+                self.val_writer.add_scalar('total_loss', self.eval_loss, self.global_step)
 
             self.print_log('\tMean {} loss of {} batches: {}.'.format(
                 ln, len(self.data_loader[ln]), np.mean(loss_value)))
@@ -383,13 +373,22 @@ class Processor():
             def count_parameters(model):
                 return sum(p.numel() for p in model.parameters() if p.requires_grad)
             self.print_log(f'# Parameters: {count_parameters(self.model)}')
-            for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
-                save_model = (((epoch + 1) % self.arg.save_interval == 0) or (
-                        epoch + 1 == self.arg.num_epoch)) and (epoch+1) > self.arg.save_epoch
 
-                self.train(epoch, save_model=save_model)
+            for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
+                self.train(epoch)
                 if epoch % self.arg.eval_freq == 0:
                     self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
+                    state_dict = self.model.state_dict()
+                    weights = OrderedDict([[k.split('module.')[-1], v.cpu()] for k, v in state_dict.items()])
+
+                    torch.save(weights, 'recent.pt')
+
+                    if self.eval_loss < self.best_loss:
+                        self.best_loss = loss
+                        self.best_loss_epoch = epoch + 1
+                        os.rename('recent.pt', self.arg.model_saved_name + '-' + str(epoch+1) + '-' + str(int(self.global_step)) + '.pt')
+
+
 
             # test the best model
             weights_path = glob.glob(os.path.join(self.arg.work_dir, 'runs-'+str(self.best_loss_epoch)+'*'))[0]
