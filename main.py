@@ -165,6 +165,18 @@ class Processor():
                 adaptive=True,
                 num_set=self.arg.n_heads
             ).cuda(output_device)
+        elif self.arg.model == 'STGCN_A':
+            from model.baseline import ModelwA
+            self.model = ModelwA(
+                num_class=self.arg.num_class,
+                num_point=self.arg.num_point,
+                num_person=self.arg.num_person,
+                graph='graph.ntu_rgb_d.Graph',
+                in_channels=3,
+                drop_out=0,
+                adaptive=True,
+                num_set=self.arg.n_heads
+            ).cuda(output_device)
         elif self.arg.model == 'CTRGCN':
             from model.ctrgcn import Model
             self.model = Model(
