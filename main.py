@@ -177,6 +177,18 @@ class Processor():
                 adaptive=True,
                 num_set=self.arg.n_heads
             )
+        elif self.arg.model == 'TCN_ATTN':
+            from model.baseline import ModelwATTN
+            self.model = ModelwATTN(
+                num_class=self.arg.num_class,
+                num_point=self.arg.num_point,
+                num_person=self.arg.num_person,
+                graph='graph.ntu_rgb_d.Graph',
+                in_channels=3,
+                drop_out=0,
+                adaptive=True,
+                num_set=self.arg.n_heads
+            )
         elif self.arg.model == 'STGCN_P':
             from model.baseline import ModelwP
             self.model = ModelwP(

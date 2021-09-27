@@ -72,9 +72,8 @@ class SelfAttention(nn.Module):
 
         # attention
         dots = einsum('b h i d, b h j d -> b h i j', q, k)*self.scale
-        return dots
-
-
+        attn = dots.softmax(dim=-1).float()
+        return attn
 
 class unit_gcn(nn.Module):
     def __init__(self, in_channels, out_channels, A, adaptive=True):
@@ -191,16 +190,15 @@ class unit_agcn(nn.Module):
             A = self.PA
         else:
             A = self.A.cuda(x.get_device())
-        adapt_attn = self.attn(x)
-        A = A.unsqueeze(0) + adapt_attn
-        if attn is not None:
-            A += attn
-        A = A.softmax(dim=-1).float()
+
+        if attn is None:
+            attn = self.attn(x)
+        A = A.unsqueeze(0) + attn
         for i in range(self.num_subset):
             A1 = A[:, i, :, :] # (nt)vv
             A2 = rearrange(x, 'n c t v -> (n t) v c')
             z = A1@A2
-            z = rearrange(z, '(n t) v c->n c t v', t=T).contiguous()
+            z = rearrange(z, '(n t) v c-> n c t v', t=T).contiguous()
             z = self.conv_d[i](z)
             y = z + y if y is not None else z
 
@@ -208,6 +206,94 @@ class unit_agcn(nn.Module):
         y += self.down(x)
         y = self.relu(y)
 
+        return y
+
+
+class unit_attn(nn.Module):
+    def __init__(self, in_channels, out_channels, A, adaptive=True, dropout=0):
+        super(unit_attn, self).__init__()
+        self.out_c = out_channels
+        self.in_c = in_channels
+        self.n_heads= A.shape[0]
+        self.adaptive = adaptive
+        # if adaptive:
+            # self.PA = nn.Parameter(torch.from_numpy(A.astype(np.float32)), requires_grad=True)
+        # else:
+            # self.A = Variable(torch.from_numpy(A.astype(np.float32)), requires_grad=False)
+        if in_channels == 3:
+            dim_head = 8
+        else:
+            dim_head = in_channels //  8
+
+        if in_channels != out_channels:
+            self.down = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, 1),
+                nn.BatchNorm2d(out_channels)
+            )
+        else:
+            self.down = lambda x: x
+
+        self.scale = dim_head ** -0.5
+        inner_dim = dim_head * self.n_heads
+        self.to_qk = nn.Conv2d(in_channels, inner_dim*2, 1)
+        self.to_v = nn.Conv2d(in_channels, inner_dim, 1)
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, out_channels),
+            nn.Dropout(dropout)
+        )
+        self.ffn = nn.Sequential(
+            nn.Linear(out_channels, out_channels*2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(out_channels*2, out_channels),
+            nn.Dropout(dropout)
+        )
+        self.layer_norm1 = nn.LayerNorm(out_channels)
+        self.layer_norm2 = nn.LayerNorm(out_channels)
+
+
+    def forward(self, x):
+        N, C, T, V = x.size()
+        qk = self.to_qk(x)
+        v = self.to_v(x)
+        qk = qk.chunk(2, dim=1)
+        q, k = map(lambda t: rearrange(t, 'b (h d) t v -> (b t) h v d', h=self.n_heads), qk)
+        v = rearrange(v, 'b (h d) t v -> (b t) h v d', h=self.n_heads)
+
+        res = self.down(x)
+        res = rearrange(res, 'n c t v -> n t v c').contiguous()
+
+        # attention
+        dots = einsum('b h i d, b h j d -> b h i j', q, k)*self.scale
+        attn = dots.softmax(dim=-1).float()
+        out = einsum('b h i j, b h j d -> b h i d', attn, v.float())
+        out = rearrange(out, '(b t) h n d -> b t n (h d)', t=T)
+        out = self.to_out(out) + res
+        out = self.layer_norm1(out)
+        out += self.ffn(out)
+        out = self.layer_norm2(out)
+        out = rearrange(out, 'n t v c -> n c t v').contiguous()
+        return out
+
+class TCN_attn_unit(nn.Module):
+    def __init__(self, in_channels, out_channels, A, stride=1, residual=True, adaptive=True):
+        super(TCN_attn_unit, self).__init__()
+        self.agcn = unit_attn(in_channels, out_channels, A, adaptive=adaptive)
+        self.tcn = mstcn(out_channels, out_channels, kernel_size=5, stride=stride,
+                         dilations=[1, 2], residual=False)
+
+        self.relu = nn.ReLU(inplace=True)
+        if not residual:
+            self.residual = lambda x: 0
+
+        elif (in_channels == out_channels) and (stride == 1):
+            self.residual = lambda x: x
+
+        else:
+            self.residual = unit_tcn(in_channels, out_channels, kernel_size=1, stride=stride)
+
+    def forward(self, x):
+        y = self.relu(self.tcn(self.agcn(x)) + self.residual(x))
         return y
 
 
@@ -337,6 +423,68 @@ class ModelwV(nn.Module):
         self.l8 = TCN_GCN_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
         self.l9 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
         self.l10 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.fc = nn.Linear(base_channel*4, num_class)
+        nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
+        bn_init(self.data_bn, 1)
+        if drop_out:
+            self.drop_out = nn.Dropout(drop_out)
+        else:
+            self.drop_out = lambda x: x
+
+    def forward(self, x):
+        N, C, T, V, M = x.size()
+
+        x = x.permute(0, 4, 2, 3, 1).contiguous().view(N*M*T, V, C)
+        x = self.A_vector.to(x.device).expand(N*M*T, -1, -1) @ x
+        x = x.view(N, M, T, V, C)
+        x = x.permute(0, 1, 3, 4, 2).contiguous().view(N, M * V *  C, T)
+        x = self.data_bn(x)
+        x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V)
+        x = self.l1(x)
+        x = self.l2(x)
+        x = self.l3(x)
+        x = self.l4(x)
+        x = self.l5(x)
+        x = self.l6(x)
+        x = self.l7(x)
+        x = self.l8(x)
+        x = self.l9(x)
+        x = self.l10(x)
+
+        # N*M,C,T,V
+        c_new = x.size(1)
+        x = x.view(N, M, c_new, -1)
+        x = x.mean(3).mean(1)
+        x = self.drop_out(x)
+
+        return self.fc(x)
+
+class ModelwATTN(nn.Module):
+    def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3,
+                 drop_out=0, adaptive=True, num_set=3):
+        super(ModelwATTN, self).__init__()
+
+        Graph = import_class(graph)
+        self.graph = Graph()
+        A_outward = Graph().A_outward_binary
+        self.A_vector = torch.eye(num_point) - A_outward
+
+        A = np.stack([np.eye(num_point)] * num_set, axis=0)
+        self.num_class = num_class
+        self.num_point = num_point
+        self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
+        base_channel = 64
+
+        self.l1 = TCN_attn_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
+        self.l2 = TCN_attn_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l3 = TCN_attn_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l4 = TCN_attn_unit(base_channel, base_channel, A, adaptive=adaptive)
+        self.l5 = TCN_attn_unit(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
+        self.l6 = TCN_attn_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l7 = TCN_attn_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l8 = TCN_attn_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
+        self.l9 = TCN_attn_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.l10 = TCN_attn_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
         self.fc = nn.Linear(base_channel*4, num_class)
         nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
         bn_init(self.data_bn, 1)
