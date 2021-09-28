@@ -119,6 +119,8 @@ class Processor():
                     split='train',
                     window_size=64,
                     p_interval=[0.5, 1],
+                    bone=self.arg.use_bone,
+                    vel=self.arg.use_vel
                 ),
                 batch_size=self.arg.batch_size,
                 shuffle=True,
@@ -131,6 +133,8 @@ class Processor():
                 split='test',
                 window_size=64,
                 p_interval=[0.95],
+                bone=self.arg.use_bone,
+                vel=self.arg.use_vel
             ),
             batch_size=self.arg.test_batch_size,
             shuffle=False,

@@ -21,6 +21,8 @@ def get_parser():
     parser.add_argument('--num_class', type=int, default=60, help='')
     parser.add_argument('--dataset', default='ntu', help='data loader will be used')
     parser.add_argument('--datacase', default='CS', help='data loader will be used')
+    parser.add_argument('--use_bone', type=str2bool, default=False, help='')
+    parser.add_argument('--use_vel', type=str2bool, default=False, help='')
 
     # processor
     parser.add_argument('--phase', default='train', help='must be train or test')
