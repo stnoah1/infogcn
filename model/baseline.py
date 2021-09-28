@@ -164,7 +164,7 @@ class unit_agcn(nn.Module):
             self.down = lambda x: x
 
         self.bn = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
+        self.gelu = nn.GELU()
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -193,7 +193,7 @@ class unit_agcn(nn.Module):
 
         if attn is None:
             attn = self.attn(x)
-        A = A.unsqueeze(0) + attn
+        A = A.unsqueeze(0)*attn
         for i in range(self.num_subset):
             A1 = A[:, i, :, :] # (nt)vv
             A2 = rearrange(x, 'n c t v -> (n t) v c')
@@ -204,7 +204,7 @@ class unit_agcn(nn.Module):
 
         y = self.bn(y)
         y += self.down(x)
-        y = self.relu(y)
+        y = self.gelu(y)
 
         return y
 
@@ -221,9 +221,9 @@ class unit_attn(nn.Module):
         # else:
             # self.A = Variable(torch.from_numpy(A.astype(np.float32)), requires_grad=False)
         if in_channels == 3:
-            dim_head = 8
+            dim_head = 4
         else:
-            dim_head = in_channels //  8
+            dim_head = in_channels //  4
 
         if in_channels != out_channels:
             self.down = nn.Sequential(
@@ -241,15 +241,8 @@ class unit_attn(nn.Module):
             nn.Linear(inner_dim, out_channels),
             nn.Dropout(dropout)
         )
-        self.ffn = nn.Sequential(
-            nn.Linear(out_channels, out_channels*2),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(out_channels*2, out_channels),
-            nn.Dropout(dropout)
-        )
-        self.layer_norm1 = nn.LayerNorm(out_channels)
-        self.layer_norm2 = nn.LayerNorm(out_channels)
+        self.layer_norm = nn.LayerNorm(out_channels)
+        self.relu = nn.GELU(inplace=True)
 
 
     def forward(self, x):
@@ -260,19 +253,17 @@ class unit_attn(nn.Module):
         q, k = map(lambda t: rearrange(t, 'b (h d) t v -> (b t) h v d', h=self.n_heads), qk)
         v = rearrange(v, 'b (h d) t v -> (b t) h v d', h=self.n_heads)
 
-        res = self.down(x)
-        res = rearrange(res, 'n c t v -> n t v c').contiguous()
 
         # attention
         dots = einsum('b h i d, b h j d -> b h i j', q, k)*self.scale
         attn = dots.softmax(dim=-1).float()
         out = einsum('b h i j, b h j d -> b h i d', attn, v.float())
         out = rearrange(out, '(b t) h n d -> b t n (h d)', t=T)
-        out = self.to_out(out) + res
-        out = self.layer_norm1(out)
-        out += self.ffn(out)
-        out = self.layer_norm2(out)
+        out = self.to_out(out)
+        out = self.layer_norm(out)
         out = rearrange(out, 'n t v c -> n c t v').contiguous()
+        out += self.down(x)
+        out = self.relu(out)
         return out
 
 class TCN_attn_unit(nn.Module):
