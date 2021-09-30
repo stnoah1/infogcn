@@ -2,17 +2,20 @@ import math
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 from torch import nn, einsum
 from torch.autograd import Variable
 
-from model.ms_tcn import MultiScale_TemporalConv as mstcn
+from model.ms_tcn import MultiScale_TemporalConv as MS_TCN
+from model.ms_gcn import MultiScale_GraphConv as MS_GCN
+from model.ms_gcn import MultiHead_GraphConv as MH_GCN
 from model.port import MORT
 from einops import rearrange, repeat
 
 from utils import set_parameter_requires_grad
 
-from modules import import_class, bn_init, TCN_GCN_unit, TCN_aGCN_unit, TCN_attn_unit
+from model.modules import import_class, bn_init, TCN_GCN_unit, TCN_aGCN_unit, TCN_attn_unit
 
 
 class Model(nn.Module):
@@ -400,60 +403,141 @@ class ModelwVAE(nn.Module):
         y = self.decoder(latent)
         return y
 
-
-class ModelTest(nn.Module):
-    def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3,
-                 drop_out=0, adaptive=True, num_set=3):
-        super(Model, self).__init__()
+class MSG3D(nn.Module):
+    def __init__(self,
+                 num_class,
+                 num_point,
+                 num_person,
+                 num_gcn_scales,
+                 graph,
+                 in_channels=3):
+        super(MSG3D, self).__init__()
 
         Graph = import_class(graph)
-        self.graph = Graph()
+        A_binary = Graph().A_binary + np.eye(num_point)
 
-        A = np.stack([np.eye(num_point)] * num_set, axis=0)
-        self.num_class = num_class
-        self.num_point = num_point
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
-        base_channel = 64
 
-        self.l1 = TCN_GCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
-        self.l2 = TCN_GCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l3 = TCN_GCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l4 = TCN_GCN_unit(base_channel, base_channel,A, adaptive=adaptive)
-        self.l5 = TCN_GCN_unit(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
-        self.l6 = TCN_GCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
-        self.l7 = TCN_GCN_unit(base_channel*2, base_channel*2, A, adaptive=adaptive)
-        self.l8 = TCN_GCN_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
-        self.l9 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
-        self.l10 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
-        self.fc = nn.Linear(base_channel*4, num_class)
-        nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
-        bn_init(self.data_bn, 1)
-        if drop_out:
-            self.drop_out = nn.Dropout(drop_out)
-        else:
-            self.drop_out = lambda x: x
+        # channels
+        c1 = 96
+        c2 = c1 * 2     # 192
+        c3 = c2 * 2     # 384
+
+        # r=3 STGC blocks
+        self.sgcn1 = nn.Sequential(
+            MS_GCN(num_gcn_scales, 3, c1, A_binary, disentangled_agg=True),
+            MS_TCN(c1, c1),
+            MS_TCN(c1, c1))
+        self.sgcn1[-1].act = nn.Identity()
+        self.tcn1 = MS_TCN(c1, c1)
+
+        self.sgcn2 = nn.Sequential(
+            MS_GCN(num_gcn_scales, c1, c1, A_binary, disentangled_agg=True),
+            MS_TCN(c1, c2, stride=2),
+            MS_TCN(c2, c2))
+        self.sgcn2[-1].act = nn.Identity()
+        self.tcn2 = MS_TCN(c2, c2)
+
+        self.sgcn3 = nn.Sequential(
+            MS_GCN(num_gcn_scales, c2, c2, A_binary, disentangled_agg=True),
+            MS_TCN(c2, c3, stride=2),
+            MS_TCN(c3, c3))
+        self.sgcn3[-1].act = nn.Identity()
+        self.tcn3 = MS_TCN(c3, c3)
+
+        self.fc = nn.Linear(c3, num_class)
 
     def forward(self, x):
         N, C, T, V, M = x.size()
         x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
         x = self.data_bn(x)
-        x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V)
-        x = self.l1(x)
-        x = self.l2(x)
-        x = self.l3(x)
-        x = self.l4(x)
-        x = self.l5(x)
-        x = self.l6(x)
-        x = self.l7(x)
-        x = self.l8(x)
-        x = self.l9(x)
-        x = self.l10(x)
+        x = x.view(N * M, V, C, T).permute(0,2,3,1).contiguous()
 
-        # N*M,C,T,V
-        c_new = x.size(1)
-        x = x.view(N, M, c_new, -1)
-        x = x.mean(3).mean(1)
-        x = self.drop_out(x)
+        # Apply activation to the sum of the pathways
+        x = F.relu(self.sgcn1(x), inplace=True)
+        x = self.tcn1(x)
 
-        return self.fc(x)
+        x = F.relu(self.sgcn2(x), inplace=True)
+        x = self.tcn2(x)
+
+        x = F.relu(self.sgcn3(x), inplace=True)
+        x = self.tcn3(x)
+
+        out = x
+        out_channels = out.size(1)
+        out = out.view(N, M, out_channels, -1)
+        out = out.mean(3)   # Global Average Pooling (Spatial+Temporal)
+        out = out.mean(1)   # Average pool number of bodies in the sequence
+
+        out = self.fc(out)
+        return out
+
+
+class Test1(nn.Module):
+    def __init__(self,
+                 num_class,
+                 num_point,
+                 num_person,
+                 graph,
+                 use_bone,
+                 in_channels=3):
+        super(Test1, self).__init__()
+
+        Graph = import_class(graph)()
+
+        self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
+
+        # channels
+        c1 = 96
+        c2 = c1 * 2     # 192
+        c3 = c2 * 2     # 384
+
+        # r=3 STGC blocks
+        self.sgcn1 = nn.Sequential(
+            MH_GCN(3, c1, Graph, bone=use_bone),
+            MS_TCN(c1, c1),
+            MS_TCN(c1, c1))
+        self.sgcn1[-1].act = nn.Identity()
+        self.tcn1 = MS_TCN(c1, c1)
+
+        self.sgcn2 = nn.Sequential(
+            MH_GCN(c1, c1, Graph, bone=use_bone),
+            MS_TCN(c1, c2, stride=2),
+            MS_TCN(c2, c2))
+        self.sgcn2[-1].act = nn.Identity()
+        self.tcn2 = MS_TCN(c2, c2)
+
+        self.sgcn3 = nn.Sequential(
+            MH_GCN(c2, c2, Graph, bone=use_bone),
+            MS_TCN(c2, c3, stride=2),
+            MS_TCN(c3, c3))
+        self.sgcn3[-1].act = nn.Identity()
+        self.tcn3 = MS_TCN(c3, c3)
+
+        self.fc = nn.Linear(c3, num_class)
+
+    def forward(self, x):
+        N, C, T, V, M = x.size()
+        x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
+        x = self.data_bn(x)
+        x = x.view(N * M, V, C, T).permute(0,2,3,1).contiguous()
+
+        # Apply activation to the sum of the pathways
+        x = F.relu(self.sgcn1(x), inplace=True)
+        x = self.tcn1(x)
+
+        x = F.relu(self.sgcn2(x), inplace=True)
+        x = self.tcn2(x)
+
+        x = F.relu(self.sgcn3(x), inplace=True)
+        x = self.tcn3(x)
+
+        out = x
+        out_channels = out.size(1)
+        out = out.view(N, M, out_channels, -1)
+        out = out.mean(3)   # Global Average Pooling (Spatial+Temporal)
+        out = out.mean(1)   # Average pool number of bodies in the sequence
+
+        out = self.fc(out)
+        return out
 

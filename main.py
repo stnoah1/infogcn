@@ -232,6 +232,26 @@ class Processor():
                 drop_out=0,
                 adaptive=True,
             )
+        elif self.arg.model == 'MSG3D':
+            from model.baseline import MSG3D
+            self.model = MSG3D(
+                num_class=self.arg.num_class,
+                num_point=self.arg.num_point,
+                num_person=self.arg.num_person,
+                num_gcn_scales=13,
+                graph='graph.ntu_rgb_d.Graph',
+                in_channels=3
+            )
+        elif self.arg.model == 'Test1':
+            from model.baseline import Test1
+            self.model = Test1(
+                num_class=self.arg.num_class,
+                num_point=self.arg.num_point,
+                num_person=self.arg.num_person,
+                use_bone=self.arg.use_bone,
+                graph='graph.ntu_rgb_d.Graph',
+                in_channels=3
+            )
         self.loss = LabelSmoothingCrossEntropy().cuda(output_device)
 
         if self.arg.weights:

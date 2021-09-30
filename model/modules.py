@@ -6,7 +6,7 @@ import numpy as np
 from torch import nn, einsum
 from torch.autograd import Variable
 
-from model.ms_tcn import MultiScale_TemporalConv as mstcn
+from model.ms_tcn import MultiScale_TemporalConv as MS_TCN
 from einops import rearrange, repeat
 
 
@@ -267,7 +267,7 @@ class TCN_attn_unit(nn.Module):
     def __init__(self, in_channels, out_channels, A, stride=1, residual=True, adaptive=True):
         super(TCN_attn_unit, self).__init__()
         self.agcn = unit_attn(in_channels, out_channels, A, adaptive=adaptive)
-        self.tcn = mstcn(out_channels, out_channels, kernel_size=5, stride=stride,
+        self.tcn = MS_TCN(out_channels, out_channels, kernel_size=5, stride=stride,
                          dilations=[1, 2], residual=False)
 
         self.relu = nn.ReLU(inplace=True)
@@ -289,7 +289,7 @@ class TCN_GCN_unit(nn.Module):
     def __init__(self, in_channels, out_channels, A, stride=1, residual=True, adaptive=True):
         super(TCN_GCN_unit, self).__init__()
         self.agcn = unit_gcn(in_channels, out_channels, A, adaptive=adaptive)
-        self.tcn = mstcn(out_channels, out_channels, kernel_size=5, stride=stride,
+        self.tcn = MS_TCN(out_channels, out_channels, kernel_size=5, stride=stride,
                          dilations=[1, 2], residual=False)
 
         self.relu = nn.ReLU(inplace=True)
@@ -311,7 +311,7 @@ class TCN_aGCN_unit(nn.Module):
     def __init__(self, in_channels, out_channels, A, stride=1, residual=True, adaptive=True, use_port=False):
         super(TCN_aGCN_unit, self).__init__()
         self.agcn = unit_agcn(in_channels, out_channels, A, adaptive=adaptive, use_port=use_port)
-        self.tcn = mstcn(out_channels, out_channels, kernel_size=5, stride=stride,
+        self.tcn = MS_TCN(out_channels, out_channels, kernel_size=5, stride=stride,
                          dilations=[1, 2], residual=False)
 
         self.relu = nn.ReLU(inplace=True)
