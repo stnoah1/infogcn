@@ -261,6 +261,15 @@ class Processor():
                 graph='graph.ntu_rgb_d.Graph',
                 in_channels=3
             )
+        elif self.arg.model == 'STGCN_VAE':
+            from model.baseline import ModelwVAE
+            self.model = ModelwVAE(
+                num_class=self.arg.num_class,
+                num_point=self.arg.num_point,
+                num_person=self.arg.num_person,
+                graph='graph.ntu_rgb_d.Graph',
+                in_channels=3
+            )
         self.loss = LabelSmoothingCrossEntropy().cuda(output_device)
 
         if self.arg.weights:
@@ -377,8 +386,9 @@ class Processor():
             timer['dataloader'] += self.split_time()
 
             # forward
-            output = self.model(data)
-            loss = self.loss(output, label)
+            output, mmd_loss = self.model(data, label)
+            cls_loss = self.loss(output, label)
+            loss = self.arg.alpha * mmd_loss + cls_loss
             # backward
             self.optimizer.zero_grad()
             if self.arg.half:
@@ -397,6 +407,8 @@ class Processor():
             acc_value.append(acc.data.item())
             self.train_writer.add_scalar('acc', acc, self.global_step)
             self.train_writer.add_scalar('loss', loss.data.item(), self.global_step)
+            self.train_writer.add_scalar('cls_loss', cls_loss.data.item(), self.global_step)
+            self.train_writer.add_scalar('mmd_loss', mmd_loss.data.item(), self.global_step)
 
             # statistics
             self.lr = self.optimizer.param_groups[0]['lr']
@@ -437,8 +449,9 @@ class Processor():
                 with torch.no_grad():
                     data = data.float().cuda(self.output_device)
                     label = label.long().cuda(self.output_device)
-                    output = self.model(data)
-                    loss = self.loss(output, label)
+                    output, mmd_loss = self.model(data, label)
+                    cls_loss = self.loss(output, label)
+                    loss = self.arg.alpha*mmd_loss + cls_loss
                     score_frag.append(output.data.cpu().numpy())
                     loss_value.append(loss.data.item())
 

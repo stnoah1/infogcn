@@ -68,6 +68,7 @@ def get_parser():
     parser.add_argument('--weight-decay', type=float, default=0.0004, help='weight decay for optimizer')
     parser.add_argument('--lr-decay-rate', type=float, default=0.1, help='decay rate for learning rate')
     parser.add_argument('--warm-up-epoch', type=int, default=5)
+    parser.add_argument('--alpha', type=float, default=1.)
 
     # apex
     parser.add_argument('--half', action='store_true', help='Use half-precision (FP16) training')

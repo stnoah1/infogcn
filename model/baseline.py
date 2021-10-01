@@ -354,8 +354,6 @@ class ModelwVAE(nn.Module):
         self.l9 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
         self.l10 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
         self.fc = nn.Linear(base_channel*4, base_channel*4)
-        nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
-        bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
         else:
@@ -364,32 +362,29 @@ class ModelwVAE(nn.Module):
         self.fc_logvar = nn.Linear(base_channel*4, base_channel*4)
         self.decoder = nn.Linear(base_channel*4, num_class)
 
+        nn.init.normal_(self.z_prior, 0, 0.5)
+        nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
+        nn.init.normal_(self.fc_mu.weight, 0, math.sqrt(2. / num_class))
+        nn.init.normal_(self.fc_logvar.weight, 0, math.sqrt(2. / num_class))
+        nn.init.normal_(self.decoder.weight, 0, math.sqrt(2. / num_class))
+        bn_init(self.data_bn, 1)
+
     def latent_sample(self, mu, logvar):
         if self.training:
             # the reparameterization trick
-            std = logvar.mul(0.5).exp_()
+            std = logvar.mul(0.1).exp()
             eps = torch.empty_like(std).normal_()
-            return eps.mul(std).add_(mu)
+            return eps.mul(std).add(mu)
         else:
             return mu
 
-    def mmd_loss(self, z, y_hat):
-        z_lst = {}
-        for k, v in zip(torch.argmax(y_hat), z):
-            if k in z_lst:
-                z_lst[k].append(k)
-            else:
-                z_lst[k] = k
-
-        l_lst = []
-        for i in self.num_class:
-            if i in z_lst:
-                l_lst.append(F.mse_loss(z_lst[i].mean(), self.z_prior[i]))
-        l = l_lst.sum()
-        return l
+    def mmd_loss(self, z, y):
+        z_mean = torch.stack([z[y==i_cls].mean(dim=0) for i_cls in range(self.num_class)], dim=0)
+        return F.mse_loss(z_mean, self.z_prior)
 
 
-    def forward(self, x):
+    def forward(self, x, y):
+
         N, C, T, V, M = x.size()
 
         x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
@@ -418,7 +413,7 @@ class ModelwVAE(nn.Module):
         z = self.latent_sample(z_mu, z_logvar)
 
         y_hat = self.decoder(z)
-        mmd_loss = self.mmd_loss(z, y_hat)
+        mmd_loss = self.mmd_loss(z, y)
         return y_hat, mmd_loss
 
 
