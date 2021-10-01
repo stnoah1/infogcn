@@ -84,7 +84,8 @@ class MultiHead_GraphConv(nn.Module):
 
         self.num_scales = 8
         A_outward = graph.A_outward_binary
-        A_binary = normalize_adjacency_matrix(graph.A_binary + np.eye(25))
+        I = np.eye(graph.num_node)
+        A_binary = normalize_adjacency_matrix(graph.A_binary + I)
 
         A_powers = []
         if bone:
@@ -94,7 +95,7 @@ class MultiHead_GraphConv(nn.Module):
                 A_powers.append(mat.copy())
         else:
             for i in range(self.num_scales):
-                mat = np.eye(A_outward.shape[0]) - np.linalg.matrix_power(A_outward, i+1)
+                mat = I - np.linalg.matrix_power(A_outward, i+1)
                 A_powers.append(A_binary@mat)
 
         A_powers = np.concatenate(A_powers)

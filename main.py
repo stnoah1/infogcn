@@ -252,6 +252,15 @@ class Processor():
                 graph='graph.ntu_rgb_d.Graph',
                 in_channels=3
             )
+        elif self.arg.model == 'Test2':
+            from model.baseline import Test2
+            self.model = Test2(
+                num_class=self.arg.num_class,
+                num_point=self.arg.num_point,
+                num_person=self.arg.num_person,
+                graph='graph.ntu_rgb_d.Graph',
+                in_channels=3
+            )
         self.loss = LabelSmoothingCrossEntropy().cuda(output_device)
 
         if self.arg.weights:
