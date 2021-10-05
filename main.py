@@ -261,6 +261,7 @@ class Processor():
                 num_point=self.arg.num_point,
                 num_person=self.arg.num_person,
                 graph='graph.ntu_rgb_d.Graph',
+                noise_ratio=self.arg.noise_ratio,
                 in_channels=3
             )
         self.loss = LabelSmoothingCrossEntropy().cuda()

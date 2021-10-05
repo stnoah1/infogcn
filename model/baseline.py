@@ -333,7 +333,7 @@ class ModelwR(nn.Module):
 
 class ModelwVAE(nn.Module):
     def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3,
-                 drop_out=0, adaptive=True, num_set=3):
+                 drop_out=0, adaptive=True, num_set=3, noise_ratio=0.1):
         super(ModelwVAE, self).__init__()
 
         if graph is not None:
@@ -346,6 +346,7 @@ class ModelwVAE(nn.Module):
         base_channel = 64
         self.num_class = num_class
         self.num_point = num_point
+        self.noise_ratio = noise_ratio
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
         self.z_prior = nn.Parameter(torch.rand(num_class, base_channel*4))
 
@@ -376,7 +377,7 @@ class ModelwVAE(nn.Module):
     def latent_sample(self, mu, logvar):
         if self.training:
             # the reparameterization trick
-            std = logvar.mul(0.1).exp()
+            std = logvar.mul(self.noise_ratio).exp()
             eps = torch.empty_like(std).normal_()
             return eps.mul(std).add(mu)
         else:

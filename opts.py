@@ -14,6 +14,7 @@ def get_parser():
     parser.add_argument('--debug', type=str2bool, default=False, help='Debug mode; default false')
     parser.add_argument('--log_dir', type=str, default='.', help='')
     parser.add_argument('--model_saved_name', default='')
+    parser.add_argument('--noise-ratio', type=float, default=0.1, help='initial learning rate')
 
     # data
     parser.add_argument('--num_point', type=int, default=25, help='')
@@ -23,6 +24,7 @@ def get_parser():
     parser.add_argument('--datacase', default='CS', help='data loader will be used')
     parser.add_argument('--use-bone', type=str2bool, default=False, help='')
     parser.add_argument('--use-vel', type=str2bool, default=False, help='')
+
 
     # processor
     parser.add_argument('--phase', default='train', help='must be train or test')
