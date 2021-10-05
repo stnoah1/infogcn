@@ -336,8 +336,14 @@ class ModelwVAE(nn.Module):
                  drop_out=0, adaptive=True, num_set=3):
         super(ModelwVAE, self).__init__()
 
+        if graph is not None:
+            Graph = import_class(graph)
+            self.graph = Graph()
+            A = self.graph.A # 3,25,25
+        else:
+            A = np.stack([np.eye(num_point)] * num_set, axis=0)
+
         base_channel = 64
-        A = np.stack([np.eye(num_point)] * num_set, axis=0)
         self.num_class = num_class
         self.num_point = num_point
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
@@ -353,7 +359,6 @@ class ModelwVAE(nn.Module):
         self.l8 = TCN_GCN_unit(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
         self.l9 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
         self.l10 = TCN_GCN_unit(base_channel*4, base_channel*4, A, adaptive=adaptive)
-        self.fc = nn.Linear(base_channel*4, base_channel*4)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
         else:
@@ -362,8 +367,7 @@ class ModelwVAE(nn.Module):
         self.fc_logvar = nn.Linear(base_channel*4, base_channel*4)
         self.decoder = nn.Linear(base_channel*4, num_class)
 
-        nn.init.normal_(self.z_prior, 0, 0.5)
-        nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
+        nn.init.normal_(self.z_prior, 0, 0.1)
         nn.init.normal_(self.fc_mu.weight, 0, math.sqrt(2. / num_class))
         nn.init.normal_(self.fc_logvar.weight, 0, math.sqrt(2. / num_class))
         nn.init.normal_(self.decoder.weight, 0, math.sqrt(2. / num_class))
@@ -379,8 +383,15 @@ class ModelwVAE(nn.Module):
             return mu
 
     def mmd_loss(self, z, y):
+        y_valid = []
+        for i in range(self.num_class):
+            if i in y:
+                y_valid.append(True)
+            else:
+                y_valid.append(False)
         z_mean = torch.stack([z[y==i_cls].mean(dim=0) for i_cls in range(self.num_class)], dim=0)
-        return F.mse_loss(z_mean, self.z_prior)
+        loss = F.mse_loss(z_mean[y_valid], self.z_prior[y_valid])
+        return loss
 
 
     def forward(self, x, y):
@@ -406,7 +417,6 @@ class ModelwVAE(nn.Module):
         x = x.view(N, M, c_new, -1)
         x = x.mean(3).mean(1)
         x = self.drop_out(x)
-        x = self.fc(x)
 
         z_mu = self.fc_mu(x)
         z_logvar = self.fc_logvar(x)

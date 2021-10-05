@@ -40,8 +40,8 @@ def init_seed(seed):
     np.random.seed(seed)
     random.seed(seed)
     # torch.backends.cudnn.enabled = False
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = True
 
 def import_class(import_str):
     mod_str, _sep, class_str = import_str.rpartition('.')
@@ -89,7 +89,7 @@ class Processor():
         self.best_acc = 0
         self.best_acc_epoch = 0
 
-        self.model = self.model.cuda(self.output_device)
+        self.model = self.model.cuda()
 
 
         if self.arg.half:
@@ -100,13 +100,6 @@ class Processor():
             )
             if self.arg.amp_opt_level != 1:
                 self.print_log('[WARN] nn.DataParallel is not yet supported by amp_opt_level != "O1"')
-
-        if type(self.arg.device) is list:
-            if len(self.arg.device) > 1:
-                self.model = nn.DataParallel(
-                    self.model,
-                    device_ids=self.arg.device,
-                    output_device=self.output_device)
 
     def load_data(self):
         Feeder = import_class(self.arg.feeder)
@@ -126,6 +119,7 @@ class Processor():
                 shuffle=True,
                 num_workers=self.arg.num_worker,
                 drop_last=True,
+                pin_memory=True,
                 worker_init_fn=init_seed)
         self.data_loader['test'] = torch.utils.data.DataLoader(
             dataset=Feeder(
@@ -140,11 +134,10 @@ class Processor():
             shuffle=False,
             num_workers=self.arg.num_worker,
             drop_last=False,
+            pin_memory=True,
             worker_init_fn=init_seed)
 
     def load_model(self):
-        output_device = self.arg.device[0] if type(self.arg.device) is list else self.arg.device
-        self.output_device = output_device
         if self.arg.model == 'STGCN':
             from model.baseline import Model
             self.model = Model(
@@ -270,7 +263,7 @@ class Processor():
                 graph='graph.ntu_rgb_d.Graph',
                 in_channels=3
             )
-        self.loss = LabelSmoothingCrossEntropy().cuda(output_device)
+        self.loss = LabelSmoothingCrossEntropy().cuda()
 
         if self.arg.weights:
             self.global_step = int(self.arg.weights[:-3].split('-')[-1])
@@ -281,7 +274,7 @@ class Processor():
             else:
                 weights = torch.load(self.arg.weights)
 
-            weights = OrderedDict([[k.split('module.')[-1], v.cuda(output_device)] for k, v in weights.items()])
+            weights = OrderedDict([[k.split('module.')[-1], v.cuda()] for k, v in weights.items()])
 
             keys = list(weights.keys())
             for w in self.arg.ignore_weights:
@@ -372,6 +365,7 @@ class Processor():
         self.adjust_learning_rate(epoch)
 
         loss_value = []
+        mmd_loss_value = []
         acc_value = []
         self.train_writer.add_scalar('epoch', epoch, self.global_step)
         self.record_time()
@@ -381,8 +375,8 @@ class Processor():
         for batch_idx, (data, label, index) in enumerate(process):
             self.global_step += 1
             with torch.no_grad():
-                data = data.float().cuda(self.output_device)
-                label = label.long().cuda(self.output_device)
+                data = data.float().cuda()
+                label = label.long().cuda()
             timer['dataloader'] += self.split_time()
 
             # forward
@@ -399,21 +393,22 @@ class Processor():
 
             self.optimizer.step()
 
-            loss_value.append(loss.data.item())
+            loss_value.append(cls_loss.data.item())
+            mmd_loss_value.append(mmd_loss.data.item())
             timer['model'] += self.split_time()
 
             value, predict_label = torch.max(output.data, 1)
             acc = torch.mean((predict_label == label.data).float())
             acc_value.append(acc.data.item())
-            self.train_writer.add_scalar('acc', acc, self.global_step)
-            self.train_writer.add_scalar('loss', loss.data.item(), self.global_step)
-            self.train_writer.add_scalar('cls_loss', cls_loss.data.item(), self.global_step)
-            self.train_writer.add_scalar('mmd_loss', mmd_loss.data.item(), self.global_step)
 
-            # statistics
-            self.lr = self.optimizer.param_groups[0]['lr']
-            self.train_writer.add_scalar('lr', self.lr, self.global_step)
             timer['statistics'] += self.split_time()
+
+        self.train_writer.add_scalar('acc', np.mean(acc_value), epoch)
+        self.train_writer.add_scalar('loss', np.mean(loss_value), epoch)
+        self.train_writer.add_scalar('mmd_loss', np.mean(mmd_loss_value), epoch)
+        # statistics
+        self.lr = self.optimizer.param_groups[0]['lr']
+        self.train_writer.add_scalar('lr', self.lr, epoch)
 
         # statistics of time consumption and loss
         proportion = {
@@ -439,6 +434,7 @@ class Processor():
         self.print_log('Eval epoch: {}'.format(epoch + 1))
         for ln in loader_name:
             loss_value = []
+            mmd_loss_value = []
             score_frag = []
             label_list = []
             pred_list = []
@@ -447,13 +443,14 @@ class Processor():
             for batch_idx, (data, label, index) in enumerate(process):
                 label_list.append(label)
                 with torch.no_grad():
-                    data = data.float().cuda(self.output_device)
-                    label = label.long().cuda(self.output_device)
+                    data = data.float().cuda()
+                    label = label.long().cuda()
                     output, mmd_loss = self.model(data, label)
                     cls_loss = self.loss(output, label)
                     loss = self.arg.alpha*mmd_loss + cls_loss
                     score_frag.append(output.data.cpu().numpy())
                     loss_value.append(loss.data.item())
+                    mmd_loss_value.append(mmd_loss.data.item())
 
                     _, predict_label = torch.max(output.data, 1)
                     pred_list.append(predict_label.data.cpu().numpy())
@@ -469,6 +466,7 @@ class Processor():
                             f_w.write(str(index[i]) + ',' + str(x) + ',' + str(true[i]) + '\n')
             score = np.concatenate(score_frag)
             loss = np.mean(loss_value)
+            mmd_loss = np.mean(mmd_loss_value)
             if 'ucla' in self.arg.feeder:
                 self.data_loader[ln].dataset.sample_name = np.arange(len(score))
             accuracy = self.data_loader[ln].dataset.top_k(score, 1)
@@ -478,8 +476,9 @@ class Processor():
 
             print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
             if self.arg.phase == 'train':
-                self.val_writer.add_scalar('loss', loss, self.global_step)
-                self.val_writer.add_scalar('acc', accuracy, self.global_step)
+                self.val_writer.add_scalar('loss', loss, epoch)
+                self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
+                self.val_writer.add_scalar('acc', accuracy, epoch)
 
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))
@@ -524,9 +523,6 @@ class Processor():
             # test the best model
             weights_path = glob.glob(os.path.join(self.arg.work_dir, 'runs-'+str(self.best_acc_epoch)+'*'))[0]
             weights = torch.load(weights_path)
-            if type(self.arg.device) is list:
-                if len(self.arg.device) > 1:
-                    weights = OrderedDict([['module.'+k, v.cuda(self.output_device)] for k, v in weights.items()])
             self.model.load_state_dict(weights)
 
             wf = weights_path.replace('.pt', '_wrong.txt')
