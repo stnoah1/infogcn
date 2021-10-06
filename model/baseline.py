@@ -378,6 +378,7 @@ class ModelwVAE(nn.Module):
         if self.training:
             # the reparameterization trick
             std = logvar.mul(self.noise_ratio).exp()
+            std = torch.clamp(std, min=0, max=10)
             eps = torch.empty_like(std).normal_()
             return eps.mul(std).add(mu)
         else:
