@@ -385,7 +385,7 @@ class ModelwVAE(nn.Module):
         else:
             return mu
 
-    def mmd_loss(self, z, y, lam=0.01):
+    def mmd_loss(self, z, y, lam=0.1):
         y_valid = [i_cls in y for i_cls in range(self.num_class)]
         z_mean = torch.stack([z[y==i_cls].mean(dim=0) for i_cls in range(self.num_class)], dim=0)
         l2norm = LA.norm(z_mean[y_valid], ord=2, dim=1).mean()
