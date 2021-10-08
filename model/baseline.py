@@ -369,21 +369,20 @@ class ModelwVAE(nn.Module):
         self.fc_logvar = nn.Linear(base_channel*4, base_channel*4)
         self.decoder = nn.Sequential(
             nn.Linear(base_channel*4, base_channel*2),
-            nn.BatchNorm1d(base_channel*2),
-            nn.ReLU(),
+            nn.GELU(),
             nn.Linear(base_channel*2, num_class)
         )
 
         nn.init.normal_(self.z_prior, 0, 0.1)
         nn.init.normal_(self.fc_mu.weight, 0, math.sqrt(2. / num_class))
         nn.init.normal_(self.fc_logvar.weight, 0, math.sqrt(2. / num_class))
-        # nn.init.normal_(self.decoder[0].weight, 0, math.sqrt(2. / num_class))
-        # nn.init.normal_(self.decoder[3].weight, 0, math.sqrt(2. / num_class))
+        nn.init.normal_(self.decoder[0].weight, 0, math.sqrt(2. / num_class))
+        nn.init.normal_(self.decoder[2].weight, 0, math.sqrt(2. / num_class))
         bn_init(self.data_bn, 1)
 
     def latent_sample(self, mu, logvar):
         if self.training:
-            std = torch.exp(self.noise_ratio * logvar)
+            std = torch.exp(self.noise_ratio * logvar).clamp(min=0, max=10)
             eps = torch.randn_like(std).normal_()
             return eps * std + mu
         else:
@@ -421,7 +420,6 @@ class ModelwVAE(nn.Module):
         x = x.mean(3).mean(1)
         x = self.drop_out(x)
 
-        import ipdb; ipdb.set_trace()
         z_mu = self.fc_mu(x)
         z_logvar = self.fc_logvar(x)
         z = self.latent_sample(z_mu, z_logvar)
