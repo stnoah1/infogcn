@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from torch import nn, einsum
 from torch.autograd import Variable
+from torch import linalg as LA
 
 from model.ms_tcn import MultiScale_TemporalConv as MS_TCN
 from model.ms_gcn import MultiScale_GraphConv as MS_GCN
@@ -384,15 +385,11 @@ class ModelwVAE(nn.Module):
         else:
             return mu
 
-    def mmd_loss(self, z, y):
-        y_valid = []
-        for i in range(self.num_class):
-            if i in y:
-                y_valid.append(True)
-            else:
-                y_valid.append(False)
+    def mmd_loss(self, z, y, lam=0.01):
+        y_valid = [i_cls in y for i_cls in range(self.num_class)]
         z_mean = torch.stack([z[y==i_cls].mean(dim=0) for i_cls in range(self.num_class)], dim=0)
-        loss = F.mse_loss(z_mean[y_valid], self.z_prior[y_valid])
+        l2norm = LA.norm(z_mean[y_valid], ord=2, dim=1).mean()
+        loss = F.mse_loss(z_mean[y_valid], self.z_prior[y_valid]) + lam * l2norm
         return loss
 
 
