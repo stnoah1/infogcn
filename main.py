@@ -435,6 +435,7 @@ class Processor():
         self.print_log('Eval epoch: {}'.format(epoch + 1))
         for ln in loader_name:
             loss_value = []
+            cls_loss_value = []
             mmd_loss_value = []
             score_frag = []
             label_list = []
@@ -451,6 +452,7 @@ class Processor():
                     loss = self.arg.alpha*mmd_loss + cls_loss
                     score_frag.append(output.data.cpu().numpy())
                     loss_value.append(loss.data.item())
+                    cls_loss_value.append(cls_loss.data.item())
                     mmd_loss_value.append(mmd_loss.data.item())
 
                     _, predict_label = torch.max(output.data, 1)
@@ -467,6 +469,7 @@ class Processor():
                             f_w.write(str(index[i]) + ',' + str(x) + ',' + str(true[i]) + '\n')
             score = np.concatenate(score_frag)
             loss = np.mean(loss_value)
+            cls_loss = np.mean(cls_loss_value)
             mmd_loss = np.mean(mmd_loss_value)
             if 'ucla' in self.arg.feeder:
                 self.data_loader[ln].dataset.sample_name = np.arange(len(score))
@@ -477,14 +480,14 @@ class Processor():
 
             print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
             if self.arg.phase == 'train':
-                self.val_writer.add_scalar('loss', loss, epoch)
+                self.val_writer.add_scalar('loss', cls_loss, epoch)
                 self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
                 self.val_writer.add_scalar('acc', accuracy, epoch)
 
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))
             self.print_log('\tMean {} loss of {} batches: {}.'.format(
-                ln, len(self.data_loader[ln]), np.mean(loss_value)))
+                ln, len(self.data_loader[ln]), np.mean(cls_loss_value)))
             for k in self.arg.show_topk:
                 self.print_log('\tTop{}: {:.2f}%'.format(
                     k, 100 * self.data_loader[ln].dataset.top_k(score, k)))
