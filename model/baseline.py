@@ -367,24 +367,21 @@ class ModelwVAE(nn.Module):
             self.drop_out = lambda x: x
         self.fc_mu = nn.Linear(base_channel*4, base_channel*4)
         self.fc_logvar = nn.Linear(base_channel*4, base_channel*4)
-        self.decoder = nn.Sequential(
-            nn.Linear(base_channel*4, base_channel*2),
-            nn.GELU(),
-            nn.Linear(base_channel*2, num_class)
-        )
+        self.decoder = nn.Linear(base_channel*4, num_class)
 
         nn.init.normal_(self.z_prior, 0, 0.1)
         nn.init.normal_(self.fc_mu.weight, 0, math.sqrt(2. / num_class))
         nn.init.normal_(self.fc_logvar.weight, 0, math.sqrt(2. / num_class))
-        nn.init.normal_(self.decoder[0].weight, 0, math.sqrt(2. / num_class))
-        nn.init.normal_(self.decoder[2].weight, 0, math.sqrt(2. / num_class))
+        nn.init.normal_(self.decoder.weight, 0, math.sqrt(2. / num_class))
         bn_init(self.data_bn, 1)
 
     def latent_sample(self, mu, logvar):
         if self.training:
-            std = torch.exp(self.noise_ratio * logvar).clamp(min=0, max=10)
-            eps = torch.randn_like(std).normal_()
-            return eps * std + mu
+            # the reparameterization trick
+            std = logvar.mul(self.noise_ratio).exp()
+            std = torch.clamp(std, min=0, max=10)
+            eps = torch.empty_like(std).normal_()
+            return eps.mul(std).add(mu)
         else:
             return mu
 
