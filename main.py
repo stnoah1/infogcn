@@ -367,6 +367,7 @@ class Processor():
 
         loss_value = []
         mmd_loss_value = []
+        l2_z_mean_value = []
         acc_value = []
         self.train_writer.add_scalar('epoch', epoch, self.global_step)
         self.record_time()
@@ -381,9 +382,9 @@ class Processor():
             timer['dataloader'] += self.split_time()
 
             # forward
-            output, mmd_loss = self.model(data, label)
+            output, mmd_loss, l2_z_mean = self.model(data, label)
             cls_loss = self.loss(output, label)
-            loss = self.arg.alpha * mmd_loss + cls_loss
+            loss = self.arg.alpha * mmd_loss + self.arg.beta * l2_z_mean + cls_loss
             # backward
             self.optimizer.zero_grad()
             if self.arg.half:
@@ -396,6 +397,7 @@ class Processor():
 
             loss_value.append(cls_loss.data.item())
             mmd_loss_value.append(mmd_loss.data.item())
+            l2_z_mean_value.append(l2_z_mean.data.item())
             timer['model'] += self.split_time()
 
             value, predict_label = torch.max(output.data, 1)
@@ -407,6 +409,7 @@ class Processor():
         self.train_writer.add_scalar('acc', np.mean(acc_value), epoch)
         self.train_writer.add_scalar('loss', np.mean(loss_value), epoch)
         self.train_writer.add_scalar('mmd_loss', np.mean(mmd_loss_value), epoch)
+        self.train_writer.add_scalar('l2_z_mean', np.mean(l2_z_mean_value), epoch)
         # statistics
         self.lr = self.optimizer.param_groups[0]['lr']
         self.train_writer.add_scalar('lr', self.lr, epoch)
@@ -437,6 +440,7 @@ class Processor():
             loss_value = []
             cls_loss_value = []
             mmd_loss_value = []
+            l2_z_mean_value = []
             score_frag = []
             label_list = []
             pred_list = []
@@ -447,13 +451,14 @@ class Processor():
                 with torch.no_grad():
                     data = data.float().cuda()
                     label = label.long().cuda()
-                    output, mmd_loss = self.model(data, label)
+                    output, mmd_loss, l2_z_mean = self.model(data, label)
                     cls_loss = self.loss(output, label)
-                    loss = self.arg.alpha*mmd_loss + cls_loss
+                    loss = self.arg.alpha*mmd_loss + self.arg.beta*l2_z_mean + cls_loss
                     score_frag.append(output.data.cpu().numpy())
                     loss_value.append(loss.data.item())
                     cls_loss_value.append(cls_loss.data.item())
                     mmd_loss_value.append(mmd_loss.data.item())
+                    l2_z_mean_value.append(l2_z_mean.data.item())
 
                     _, predict_label = torch.max(output.data, 1)
                     pred_list.append(predict_label.data.cpu().numpy())
@@ -471,6 +476,7 @@ class Processor():
             loss = np.mean(loss_value)
             cls_loss = np.mean(cls_loss_value)
             mmd_loss = np.mean(mmd_loss_value)
+            l2_z_mean_loss = np.mean(l2_z_mean_value)
             if 'ucla' in self.arg.feeder:
                 self.data_loader[ln].dataset.sample_name = np.arange(len(score))
             accuracy = self.data_loader[ln].dataset.top_k(score, 1)
@@ -482,6 +488,7 @@ class Processor():
             if self.arg.phase == 'train':
                 self.val_writer.add_scalar('loss', cls_loss, epoch)
                 self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
+                self.val_writer.add_scalar('mmd_loss', l2_z_mean_loss, epoch)
                 self.val_writer.add_scalar('acc', accuracy, epoch)
 
             score_dict = dict(
