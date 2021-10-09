@@ -479,17 +479,18 @@ class Processor():
             l2_z_mean_loss = np.mean(l2_z_mean_value)
             if 'ucla' in self.arg.feeder:
                 self.data_loader[ln].dataset.sample_name = np.arange(len(score))
-            val_accuracy = self.data_loader[ln].dataset.top_k(score, 1)
-            if val_accuracy > self.best_acc:
-                self.best_acc = val_accuracy
+            accuracy = self.data_loader[ln].dataset.top_k(score, 1)
+            if accuracy > self.best_acc:
+                self.best_acc = accuracy
                 self.best_acc_epoch = epoch + 1
 
-            print('Accuracy: ', val_accuracy, ' model: ', self.arg.model_saved_name)
+            print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
             if self.arg.phase == 'train':
                 self.val_writer.add_scalar('loss', cls_loss, epoch)
                 self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
                 self.val_writer.add_scalar('mmd_loss', l2_z_mean_loss, epoch)
-                self.val_writer.add_scalar('acc', val_accuracy, epoch)
+                self.val_writer.add_scalar('val_acc', accuracy, epoch)
+                wandb.log({"val_acc" : accuracy})
 
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))
