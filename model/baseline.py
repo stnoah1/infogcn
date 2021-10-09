@@ -349,7 +349,7 @@ class ModelwVAE(nn.Module):
         self.num_point = num_point
         self.noise_ratio = noise_ratio
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
-        self.z_prior = torch.empty(num_class, base_channel*4)
+        self.z_prior = nn.Parameter(torch.empty(num_class, base_channel*4))
 
         self.l1 = TCN_GCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
         self.l2 = TCN_GCN_unit(base_channel, base_channel, A, adaptive=adaptive)
@@ -369,8 +369,8 @@ class ModelwVAE(nn.Module):
         self.fc_logvar = nn.Linear(base_channel*4, base_channel*4)
         self.decoder = nn.Linear(base_channel*4, num_class)
 
-        # nn.init.normal_(self.z_prior, 0, 0.1)
-        nn.init.orthogonal_(self.z_prior, gain=3)
+        nn.init.normal_(self.z_prior, 0, 0.1)
+        # nn.init.orthogonal_(self.z_prior)
         nn.init.normal_(self.fc_mu.weight, 0, math.sqrt(2. / num_class))
         nn.init.normal_(self.fc_logvar.weight, 0, math.sqrt(2. / num_class))
         nn.init.normal_(self.decoder.weight, 0, math.sqrt(2. / num_class))
@@ -390,7 +390,7 @@ class ModelwVAE(nn.Module):
         y_valid = [i_cls in y for i_cls in range(self.num_class)]
         z_mean = torch.stack([z[y==i_cls].mean(dim=0) for i_cls in range(self.num_class)], dim=0)
         l2_z_mean= LA.norm(z.mean(dim=0), ord=2)
-        mmd_loss = F.mse_loss(z_mean[y_valid], self.z_prior[y_valid].to(z.device))
+        mmd_loss = F.mse_loss(z_mean[y_valid], self.z_prior[y_valid])
         return mmd_loss, l2_z_mean
 
 
