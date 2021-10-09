@@ -488,7 +488,7 @@ class Processor():
             if self.arg.phase == 'train':
                 self.val_writer.add_scalar('loss', cls_loss, epoch)
                 self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
-                self.val_writer.add_scalar('mmd_loss', l2_z_mean_loss, epoch)
+                self.val_writer.add_scalar('l2_z_mean', l2_z_mean_loss, epoch)
                 self.val_writer.add_scalar('val_acc', accuracy, epoch)
                 wandb.log({"val_acc" : accuracy})
 
