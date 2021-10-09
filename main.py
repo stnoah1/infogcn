@@ -479,17 +479,17 @@ class Processor():
             l2_z_mean_loss = np.mean(l2_z_mean_value)
             if 'ucla' in self.arg.feeder:
                 self.data_loader[ln].dataset.sample_name = np.arange(len(score))
-            accuracy = self.data_loader[ln].dataset.top_k(score, 1)
-            if accuracy > self.best_acc:
-                self.best_acc = accuracy
+            val_accuracy = self.data_loader[ln].dataset.top_k(score, 1)
+            if val_accuracy > self.best_acc:
+                self.best_acc = val_accuracy
                 self.best_acc_epoch = epoch + 1
 
-            print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
+            print('Accuracy: ', val_accuracy, ' model: ', self.arg.model_saved_name)
             if self.arg.phase == 'train':
                 self.val_writer.add_scalar('loss', cls_loss, epoch)
                 self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
                 self.val_writer.add_scalar('mmd_loss', l2_z_mean_loss, epoch)
-                self.val_writer.add_scalar('acc', accuracy, epoch)
+                self.val_writer.add_scalar('acc', val_accuracy, epoch)
 
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))

@@ -59,7 +59,7 @@ def get_parser():
 
     # optim
     parser.add_argument('--base-lr', type=float, default=0.1, help='initial learning rate')
-    parser.add_argument('--step', type=int, default=[35, 55], nargs='+', help='the epoch where optimizer reduce the learning rate')
+    parser.add_argument('--step', type=int, default=[30, 40], nargs='+', help='the epoch where optimizer reduce the learning rate')
     parser.add_argument('--device', type=int, default=0, nargs='+', help='the indexes of GPUs for training or testing')
     parser.add_argument('--optimizer', default='SGD', help='type of optimizer')
     parser.add_argument('--nesterov', type=str2bool, default=True, help='use nesterov or not')
@@ -74,7 +74,7 @@ def get_parser():
     parser.add_argument('--beta', type=float, default=1.)
 
     # apex
-    parser.add_argument('--half', action='store_true', help='Use half-precision (FP16) training')
+    parser.add_argument('--half', type=str2bool, default=True, help='Use half-precision (FP16) training')
     parser.add_argument('--amp-opt-level', type=int, default=1, help='NVIDIA Apex AMP optimization level')
 
     return parser
