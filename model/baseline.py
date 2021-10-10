@@ -14,7 +14,7 @@ from model.ms_gcn import MultiHead_GraphConv as MH_GCN
 from model.port import MORT
 from einops import rearrange, repeat
 
-from utils import set_parameter_requires_grad
+from utils import set_parameter_requires_grad, get_vector_property
 
 from model.modules import import_class, bn_init, TCN_GCN_unit, TCN_aGCN_unit, TCN_attn_unit
 
@@ -391,7 +391,7 @@ class ModelwVAE(nn.Module):
         z_mean = torch.stack([z[y==i_cls].mean(dim=0) for i_cls in range(self.num_class)], dim=0)
         l2_z_mean= LA.norm(z.mean(dim=0), ord=2)
         mmd_loss = F.mse_loss(z_mean[y_valid], self.z_prior[y_valid])
-        return mmd_loss, l2_z_mean
+        return mmd_loss, l2_z_mean, z_mean
 
 
     def forward(self, x, y):
@@ -423,8 +423,11 @@ class ModelwVAE(nn.Module):
         z = self.latent_sample(z_mu, z_logvar)
 
         y_hat = self.decoder(z)
-        mmd_loss, l2_z_mean = self.get_loss(z, y)
-        return y_hat, mmd_loss, l2_z_mean
+        mmd_loss, l2_z_mean, z_mean = self.get_loss(z, y)
+
+        cos_z, dis_z = get_vector_property(z_mean)
+        cos_z_prior, dis_z_prior = get_vector_property(self.z_prior)
+        return y_hat, mmd_loss, l2_z_mean, cos_z, dis_z, cos_z_prior, dis_z_prior
 
 
 class MSG3D(nn.Module):

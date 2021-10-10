@@ -369,6 +369,11 @@ class Processor():
         mmd_loss_value = []
         l2_z_mean_value = []
         acc_value = []
+        cos_z_value = []
+        dis_z_value = []
+        cos_z_prior_value = []
+        dis_z_prior_value = []
+
         self.train_writer.add_scalar('epoch', epoch, self.global_step)
         self.record_time()
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
@@ -382,7 +387,12 @@ class Processor():
             timer['dataloader'] += self.split_time()
 
             # forward
-            output, mmd_loss, l2_z_mean = self.model(data, label)
+            output, mmd_loss, l2_z_mean, cos_z, dis_z, cos_z_prior, dis_z_prior = self.model(data, label)
+            cos_z_value.append(cos_z.data.item())
+            dis_z_value.append(dis_z.data.item())
+            cos_z_prior_value.append(cos_z_prior.data.item())
+            dis_z_prior_value.append(dis_z_prior.data.item())
+
             cls_loss = self.loss(output, label)
             loss = self.arg.alpha * mmd_loss + self.arg.beta * l2_z_mean + cls_loss
             # backward
@@ -410,6 +420,12 @@ class Processor():
         self.train_writer.add_scalar('loss', np.mean(loss_value), epoch)
         self.train_writer.add_scalar('mmd_loss', np.mean(mmd_loss_value), epoch)
         self.train_writer.add_scalar('l2_z_mean', np.mean(l2_z_mean_value), epoch)
+
+        self.train_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
+        self.train_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
+        self.train_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
+        self.train_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
+
         # statistics
         self.lr = self.optimizer.param_groups[0]['lr']
         self.train_writer.add_scalar('lr', self.lr, epoch)
@@ -444,6 +460,10 @@ class Processor():
             score_frag = []
             label_list = []
             pred_list = []
+            cos_z_value = []
+            dis_z_value = []
+            cos_z_prior_value = []
+            dis_z_prior_value = []
             step = 0
             process = tqdm(self.data_loader[ln], ncols=40)
             for batch_idx, (data, label, index) in enumerate(process):
@@ -451,7 +471,11 @@ class Processor():
                 with torch.no_grad():
                     data = data.float().cuda()
                     label = label.long().cuda()
-                    output, mmd_loss, l2_z_mean = self.model(data, label)
+                    output, mmd_loss, l2_z_mean, cos_z, dis_z, cos_z_prior, dis_z_prior = self.model(data, label)
+                    cos_z_value.append(cos_z.data.item())
+                    dis_z_value.append(dis_z.data.item())
+                    cos_z_prior_value.append(cos_z_prior.data.item())
+                    dis_z_prior_value.append(dis_z_prior.data.item())
                     cls_loss = self.loss(output, label)
                     loss = self.arg.alpha*mmd_loss + self.arg.beta*l2_z_mean + cls_loss
                     score_frag.append(output.data.cpu().numpy())
@@ -490,6 +514,10 @@ class Processor():
                 self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
                 self.val_writer.add_scalar('l2_z_mean', l2_z_mean_loss, epoch)
                 self.val_writer.add_scalar('val_acc', accuracy, epoch)
+                self.train_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
+                self.train_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
+                self.train_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
+                self.train_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
                 wandb.log({"val_acc" : accuracy})
 
             score_dict = dict(

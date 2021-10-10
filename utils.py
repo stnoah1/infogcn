@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from tqdm import tqdm
+from torch import linalg as LA
 
 def import_class(name):
     components = name.split('.')
@@ -197,6 +198,19 @@ def get_attn(x, mask= None, similarity='scaled_dot'):
     attn = F.softmax(score, -1)
     embd = torch.bmm(attn, x)
     return embd, attn
+
+def get_vector_property(x):
+    N, C = x.size()
+    x1 = x.unsqueeze(0).expand(N, N, C)
+    x2 = x.unsqueeze(1).expand(N, N, C)
+    x1 = x1.reshape(N*N, C)
+    x2 = x2.reshape(N*N, C)
+    cos_sim = F.cosine_similarity(x1, x2, dim=1, eps=1e-6).view(N, N)
+    cos_sim = torch.triu(cos_sim, diagonal=1).sum() * 2 / (N*(N-1))
+    pdist = LA.norm(x1-x2, ord=2, dim=1).view(N, N)
+    pdist = torch.triu(pdist, diagonal=1).sum() * 2 / (N*(N-1))
+    return cos_sim, pdist
+
 
 if __name__ == "__main__":
     create_aligned_dataset()
