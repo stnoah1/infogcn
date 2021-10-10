@@ -27,6 +27,8 @@ from tqdm import tqdm
 from opts import get_parser
 from loss import LabelSmoothingCrossEntropy
 
+from utils import get_vector_property
+
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
@@ -150,18 +152,6 @@ class Processor():
                 adaptive=True,
                 num_set=self.arg.n_heads
             )
-        elif self.arg.model == 'STGCN_V':
-            from model.baseline import ModelwV
-            self.model = ModelwV(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                num_set=self.arg.n_heads
-            )
         elif self.arg.model == 'STGCN_A':
             from model.baseline import ModelwA
             self.model = ModelwA(
@@ -174,89 +164,9 @@ class Processor():
                 adaptive=True,
                 num_set=self.arg.n_heads
             )
-        elif self.arg.model == 'STGCN_R':
-            from model.baseline import ModelwR
-            self.model = ModelwA(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                num_set=self.arg.n_heads
-            )
-        elif self.arg.model == 'TCN_ATTN':
-            from model.baseline import ModelwATTN
-            self.model = ModelwATTN(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                num_set=self.arg.n_heads
-            )
-        elif self.arg.model == 'STGCN_P':
-            from model.baseline import ModelwP
-            self.model = ModelwP(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                embd_dim=self.arg.embd_dim,
-                n_layers=self.arg.n_layers,
-                n_heads=self.arg.n_heads,
-                pretrain_weight=self.arg.pretrain_weight,
-                freeze_port=self.arg.freeze_port
-            )
-        elif self.arg.model == 'CTRGCN':
-            from model.ctrgcn import Model
-            self.model = Model(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-            )
-        elif self.arg.model == 'MSG3D':
-            from model.baseline import MSG3D
-            self.model = MSG3D(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                num_gcn_scales=13,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3
-            )
-        elif self.arg.model == 'Test1':
-            from model.baseline import Test1
-            self.model = Test1(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                use_bone=self.arg.use_bone,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3
-            )
-        elif self.arg.model == 'Test2':
-            from model.baseline import Test2
-            self.model = Test2(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3
-            )
         elif self.arg.model == 'STGCN_VAE':
-            from model.baseline import ModelwVAE
-            self.model = ModelwVAE(
+            from model.baseline import ModelwMMD
+            self.model = ModelwMMD(
                 num_class=self.arg.num_class,
                 num_point=self.arg.num_point,
                 num_person=self.arg.num_person,
@@ -387,7 +297,9 @@ class Processor():
             timer['dataloader'] += self.split_time()
 
             # forward
-            output, mmd_loss, l2_z_mean, cos_z, dis_z, cos_z_prior, dis_z_prior = self.model(data, label)
+            output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
+            cos_z, dis_z = get_vector_property(z_mean)
+            cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
             cos_z_value.append(cos_z.data.item())
             dis_z_value.append(dis_z.data.item())
             cos_z_prior_value.append(cos_z_prior.data.item())
@@ -471,7 +383,9 @@ class Processor():
                 with torch.no_grad():
                     data = data.float().cuda()
                     label = label.long().cuda()
-                    output, mmd_loss, l2_z_mean, cos_z, dis_z, cos_z_prior, dis_z_prior = self.model(data, label)
+                    output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
+                    cos_z, dis_z = get_vector_property(z_mean)
+                    cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
                     cos_z_value.append(cos_z.data.item())
                     dis_z_value.append(dis_z.data.item())
                     cos_z_prior_value.append(cos_z_prior.data.item())
@@ -514,10 +428,10 @@ class Processor():
                 self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
                 self.val_writer.add_scalar('l2_z_mean', l2_z_mean_loss, epoch)
                 self.val_writer.add_scalar('val_acc', accuracy, epoch)
-                self.train_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
-                self.train_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
-                self.train_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
-                self.train_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
+                self.val_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
+                self.val_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
+                self.val_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
+                self.val_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
                 wandb.log({"val_acc" : accuracy})
 
             score_dict = dict(
