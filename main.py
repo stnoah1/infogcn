@@ -106,7 +106,7 @@ class Processor():
     def load_data(self):
         Feeder = import_class(self.arg.feeder)
         self.data_loader = dict()
-        data_path = f'data/{self.arg.dataset}/NTU60_{self.arg.datacase}_aligned.npz'
+        data_path = f'data/{self.arg.dataset}/{self.arg.datacase}_aligned.npz'
         if self.arg.phase == 'train':
             self.data_loader['train'] = torch.utils.data.DataLoader(
                 dataset=Feeder(
