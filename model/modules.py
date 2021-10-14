@@ -58,13 +58,17 @@ class SelfAttention(nn.Module):
         super(SelfAttention, self).__init__()
         self.scale = hidden_dim ** -0.5
         inner_dim = hidden_dim * n_heads
-        self.to_qk = nn.Conv2d(in_channels, inner_dim*2, 1)
+        self.to_qk = nn.Linear(in_channels, inner_dim*2)
         self.n_heads = n_heads
+        self.ln = nn.LayerNorm(in_channels)
+        nn.init.normal_(self.to_qk.weight, 0, 1)
 
     def forward(self, x):
-        y = self.to_qk(x)
-        qk = y.chunk(2, dim=1)
-        q, k = map(lambda t: rearrange(t, 'b (h d) t v -> (b t) h v d', h=self.n_heads), qk)
+        y = rearrange(x, 'n c t v -> n t v c').contiguous()
+        y = self.ln(y)
+        y = self.to_qk(y)
+        qk = y.chunk(2, dim=-1)
+        q, k = map(lambda t: rearrange(t, 'b t v (h d) -> (b t) h v d', h=self.n_heads), qk)
 
         # attention
         dots = einsum('b h i d, b h j d -> b h i j', q, k)*self.scale
@@ -160,7 +164,7 @@ class unit_agcn(nn.Module):
             self.down = lambda x: x
 
         self.bn = nn.BatchNorm2d(out_channels)
-        self.gelu = nn.GELU()
+        self.relu = nn.ReLU(inplace=True)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -171,11 +175,12 @@ class unit_agcn(nn.Module):
         for i in range(self.num_subset):
             conv_branch_init(self.conv_d[i], self.num_subset)
 
-        if in_channels == 3:
+        if in_channels == 3 or in_channels == 6:
             rel_channels = 8
         else:
             rel_channels = in_channels //  8
-        self.attn = SelfAttention(in_channels, rel_channels, self.num_subset)
+        if not use_port:
+            self.attn = SelfAttention(in_channels, rel_channels, self.num_subset)
 
 
     def forward(self, x, attn=None):
@@ -189,7 +194,7 @@ class unit_agcn(nn.Module):
 
         if attn is None:
             attn = self.attn(x)
-        A = A.unsqueeze(0)*attn
+        A = attn * A.unsqueeze(0)
         for i in range(self.num_subset):
             A1 = A[:, i, :, :] # (nt)vv
             A2 = rearrange(x, 'n c t v -> (n t) v c')
@@ -200,10 +205,9 @@ class unit_agcn(nn.Module):
 
         y = self.bn(y)
         y += self.down(x)
-        y = self.gelu(y)
+        y = self.relu(y)
 
         return y
-
 
 class unit_attn(nn.Module):
     def __init__(self, in_channels, out_channels, A, adaptive=True, dropout=0):
