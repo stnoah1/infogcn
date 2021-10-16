@@ -205,7 +205,7 @@ class SAGCN(nn.Module):
         self.decoder = nn.Linear(base_channel*4, num_class)
         nn.init.orthogonal_(self.z_prior)
         nn.init.xavier_uniform_(self.fc.weight, gain=nn.init.calculate_gain('relu'))
-        nn.init.xavier_uniform_(self.fc_nu.weight, gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self.fc_mu.weight, gain=nn.init.calculate_gain('relu'))
         nn.init.xavier_uniform_(self.fc_logvar.weight, gain=nn.init.calculate_gain('relu'))
         nn.init.normal_(self.decoder.weight, 0, math.sqrt(2. / num_class))
         bn_init(self.data_bn, 1)
