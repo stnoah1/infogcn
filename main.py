@@ -114,7 +114,7 @@ class Processor():
                 p_interval=[0.5, 1],
                 bone=self.arg.use_bone,
                 vel=self.arg.use_vel,
-                sort=True if self.arg.blanced_sampling else False,
+                sort=True if self.arg.balanced_sampling else False,
             )
             if self.arg.balanced_sampling:
                 sampler = BS(data_source=dt, args=self.arg)

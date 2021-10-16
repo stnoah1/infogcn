@@ -43,6 +43,7 @@ def get_parser():
     # feeder
     parser.add_argument('--feeder', default='feeders.feeder_ntu.Feeder', help='data loader will be used')
     parser.add_argument('--num-worker', type=int, default=8, help='the number of worker for data loader')
+    parser.add_argument('--balanced_sampling', type=str2bool, default=False, help='the number of worker for data loader')
 
     # model
     parser.add_argument('--model', default=None, help='the model will be used')
