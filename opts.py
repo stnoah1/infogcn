@@ -17,6 +17,7 @@ def get_parser():
     parser.add_argument('--noise-ratio', type=float, default=0.1, help='initial learning rate')
 
     # data
+    parser.add_argument('--n_desired', type=int, default=40000, help='')
     parser.add_argument('--num_point', type=int, default=25, help='')
     parser.add_argument('--num_person', type=int, default=2, help='')
     parser.add_argument('--num_class', type=int, default=60, help='')

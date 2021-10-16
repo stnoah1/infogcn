@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+from torch.utils.data.sampler import Sampler
+from typing import Sized
 from tqdm import tqdm
 from torch import linalg as LA
 
@@ -211,6 +213,41 @@ def get_vector_property(x):
     pdist = torch.triu(pdist, diagonal=1).sum() * 2 / (N*(N-1))
     return cos_sim, pdist
 
+
+class BalancedSampler(Sampler[int]):
+
+    data_source: Sized
+    replacement: bool
+
+    def __init__(self, data_source: Sized, args=None) -> None:
+        self.dt = data_source
+        self.args = args
+        self.n_cls = args.num_class
+        self.n_dt = len(self.dt)
+        self.n_per_cls = self.dt.n_per_cls
+        self.n_cls_wise_desired = int(self.n_dt/self.n_cls)
+        self.n_repeat = np.ceil(self.n_cls_wise_desired/np.array(self.n_per_cls)).astype(int)
+        self.n_samples = self.n_cls_wise_desired * self.n_cls
+        self.st_idx_cls = self.dt.csum_n_per_cls[:-1]
+        self.cls_idx = torch.from_numpy(self.st_idx_cls).\
+           unsqueeze(1).expand(self.n_cls, self.n_cls_wise_desired)
+
+    def num_samples(self) -> int:
+        return self.n_samples
+
+    def __iter__(self):
+        batch_rand_perm_lst = list()
+        for i_cls in range(self.n_cls):
+            rand = torch.rand(self.n_repeat[i_cls], self.n_per_cls[i_cls])
+            brp = rand.argsort(dim=-1).reshape(-1)[:self.n_cls_wise_desired]
+            batch_rand_perm_lst.append(brp)
+        batch_rand_perm  = torch.stack(batch_rand_perm_lst, 0)
+        batch_rand_perm += self.cls_idx
+        b = batch_rand_perm.permute(1, 0).reshape(-1).tolist()
+        yield from b
+
+    def __len__(self):
+        return self.num_samples
 
 if __name__ == "__main__":
     create_aligned_dataset()

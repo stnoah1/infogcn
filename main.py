@@ -28,7 +28,7 @@ from opts import get_parser
 from loss import LabelSmoothingCrossEntropy
 
 from utils import get_vector_property
-
+from utils import BalancedSampler as BS
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
@@ -108,6 +108,20 @@ class Processor():
         self.data_loader = dict()
         data_path = f'data/{self.arg.dataset}/{self.arg.datacase}_aligned.npz'
         if self.arg.phase == 'train':
+            dt = Feeder(data_path=data_path,
+                split='train',
+                window_size=64,
+                p_interval=[0.5, 1],
+                bone=self.arg.use_bone,
+                vel=self.arg.use_vel,
+                sort=True if self.arg.blanced_sampling else False,
+            )
+            if self.arg.balanced_sampling:
+                sampler = BS(data_source=dt, args=self.arg)
+                shuffle = False
+            else:
+                sampler = None
+                shuffle = True
             self.data_loader['train'] = torch.utils.data.DataLoader(
                 dataset=Feeder(
                     data_path=data_path,
@@ -117,8 +131,9 @@ class Processor():
                     bone=self.arg.use_bone,
                     vel=self.arg.use_vel
                 ),
+                sampler=sampler,
                 batch_size=self.arg.batch_size,
-                shuffle=True,
+                shuffle=shuffle,
                 num_workers=self.arg.num_worker,
                 drop_last=True,
                 pin_memory=True,
@@ -300,7 +315,7 @@ class Processor():
         self.train_writer.add_scalar('epoch', epoch, self.global_step)
         self.record_time()
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
-        process = tqdm(loader, ncols=40)
+        process = tqdm(loader, ncols=40, total=self.arg.n_desired//self.arg.batch_size)
 
         for batch_idx, (data, label, index) in enumerate(process):
             self.global_step += 1
@@ -311,6 +326,7 @@ class Processor():
 
             # forward
             output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
+            hist = torch.histc(label, bins=60, min=0, max=59)
             cos_z, dis_z = get_vector_property(z_mean)
             cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
             cos_z_value.append(cos_z.data.item())
@@ -450,7 +466,7 @@ class Processor():
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))
             self.print_log('\tMean {} loss of {} batches: {}.'.format(
-                ln, len(self.data_loader[ln]), np.mean(cls_loss_value)))
+                ln, self.arg.n_desired//self.arg.batch_size, np.mean(cls_loss_value)))
             for k in self.arg.show_topk:
                 self.print_log('\tTop{}: {:.2f}%'.format(
                     k, 100 * self.data_loader[ln].dataset.top_k(score, k)))
@@ -475,7 +491,7 @@ class Processor():
     def start(self):
         if self.arg.phase == 'train':
             self.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
-            self.global_step = self.arg.start_epoch * len(self.data_loader['train']) / self.arg.batch_size
+            self.global_step = 0 #self.arg.start_epoch * len(self.data_loader['train']) / self.arg.batch_size
             def count_parameters(model):
                 return sum(p.numel() for p in model.parameters() if p.requires_grad)
             self.print_log(f'# Parameters: {count_parameters(self.model)}')

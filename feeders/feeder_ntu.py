@@ -8,7 +8,7 @@ from feeders import tools
 class Feeder(Dataset):
     def __init__(self, data_path, label_path=None, p_interval=1, split='train', random_choose=False, random_shift=False,
                  random_move=False, random_rot=False, window_size=-1, normalization=False, debug=False, use_mmap=False,
-                 bone=False, vel=False):
+                 bone=False, vel=False, sort=False):
         """
         :param data_path:
         :param label_path:
@@ -41,6 +41,9 @@ class Feeder(Dataset):
         self.bone = bone
         self.vel = vel
         self.load_data()
+        if sort:
+            self.get_n_per_class()
+            self.sort()
         if normalization:
             self.get_mean_map()
 
@@ -59,6 +62,17 @@ class Feeder(Dataset):
             raise NotImplementedError('data split only supports train/test')
         N, T, _ = self.data.shape
         self.data = self.data.reshape((N, T, 2, 25, 3)).transpose(0, 4, 1, 3, 2)
+
+    def get_n_per_class(self):
+        self.n_per_cls = np.zeros(len(self.label), dtype=int)
+        for label in self.label:
+            self.n_per_cls[label] += 1
+        self.csum_n_per_cls = np.insert(np.cumsum(self.n_per_cls), 0, 0)
+
+    def sort(self):
+        sorted_idx = self.label.argsort()
+        self.data = self.data[sorted_idx]
+        self.label = self.label[sorted_idx]
 
     def get_mean_map(self):
         data = self.data
