@@ -326,7 +326,6 @@ class Processor():
 
             # forward
             output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
-            hist = torch.histc(label, bins=60, min=0, max=59)
             cos_z, dis_z = get_vector_property(z_mean)
             cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
             cos_z_value.append(cos_z.data.item())
@@ -413,6 +412,7 @@ class Processor():
                     data = data.float().cuda()
                     label = label.long().cuda()
                     output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
+                    import ipdb; ipdb.set_trace()
                     cos_z, dis_z = get_vector_property(z_mean)
                     cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
                     cos_z_value.append(cos_z.data.item())
