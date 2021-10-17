@@ -200,7 +200,8 @@ class Processor():
                 drop_out=0,
                 adaptive=True,
                 num_set=self.arg.n_heads,
-                k=self.arg.modal_idx
+                k=self.arg.modal_idx,
+                gain=self.arg.gain
             )
         self.loss = LabelSmoothingCrossEntropy().cuda()
 

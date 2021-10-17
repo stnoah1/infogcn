@@ -176,7 +176,7 @@ class ModelwMMD(nn.Module):
 
 class SAGCN(nn.Module):
     def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3,
-                 drop_out=0, adaptive=True, num_set=3, noise_ratio=0.1, k=0):
+                 drop_out=0, adaptive=True, num_set=3, noise_ratio=0.1, k=0, gain=1):
         super(SAGCN, self).__init__()
 
         A = np.stack([np.eye(num_point)] * num_set, axis=0)
@@ -186,8 +186,9 @@ class SAGCN(nn.Module):
         self.num_point = num_point
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
         self.noise_ratio = noise_ratio
-        self.z_prior = nn.Parameter(torch.empty(num_class, base_channel*4))
+        self.z_prior = torch.empty(num_class, base_channel*4)
         self.A_vector = self.get_A(graph, k)
+        self.gain = gain
 
         self.l1 = TCN_aGCN_unit(in_channels, base_channel, A, residual=False, adaptive=adaptive)
         self.l2 = TCN_aGCN_unit(base_channel, base_channel,A, adaptive=adaptive)
@@ -203,7 +204,7 @@ class SAGCN(nn.Module):
         self.fc_mu = nn.Linear(base_channel*4, base_channel*4)
         self.fc_logvar = nn.Linear(base_channel*4, base_channel*4)
         self.decoder = nn.Linear(base_channel*4, num_class)
-        nn.init.orthogonal_(self.z_prior)
+        nn.init.orthogonal_(self.z_prior, gain=gain)
         nn.init.xavier_uniform_(self.fc.weight, gain=nn.init.calculate_gain('relu'))
         nn.init.xavier_uniform_(self.fc_mu.weight, gain=nn.init.calculate_gain('relu'))
         nn.init.xavier_uniform_(self.fc_logvar.weight, gain=nn.init.calculate_gain('relu'))
@@ -223,10 +224,11 @@ class SAGCN(nn.Module):
     def latent_sample(self, mu, logvar):
         if self.training:
             # the reparameterization trick
-            std = logvar.mul(self.noise_ratio).exp()
+            std = logvar.exp()
             std = torch.clamp(std, max=100)
+            std = std / LA.norm(std, dim=1, ord=2)
             eps = torch.empty_like(std).normal_()
-            return eps.mul(std).add(mu)
+            return self.gain * self.noise_ratio * eps.mul(std) + mu
         else:
             return mu
 
