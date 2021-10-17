@@ -223,12 +223,11 @@ class SAGCN(nn.Module):
 
     def latent_sample(self, mu, logvar):
         if self.training:
-            # the reparameterization trick
             std = logvar.exp()
             std = torch.clamp(std, max=100)
-            std = std / LA.norm(std, dim=1, ord=2)
+            std = std / (torch.norm(std, 2, dim=1, keepdim=True) + 1e-4)
             eps = torch.empty_like(std).normal_()
-            return self.gain * self.noise_ratio * eps.mul(std) + mu
+            return self.noise_ratio * self.gain * eps.mul(std) + mu
         else:
             return mu
 
