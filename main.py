@@ -28,7 +28,7 @@ from opts import get_parser
 from loss import LabelSmoothingCrossEntropy, get_mmd_loss
 from model.infogcn import InfoGCN
 
-from utils import get_vector_property
+from utils import get_vector_property, clean_miss_aligned_skeleton
 from utils import BalancedSampler as BS
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -208,7 +208,7 @@ class Processor():
 
     def adjust_learning_rate(self, epoch):
         if self.arg.optimizer == 'SGD' or self.arg.optimizer == 'Adam':
-            if epoch < self.arg.warm_up_epoch:
+            if epoch < self.arg.warm_up_epoch and self.arg.weights is None:
                 lr = self.arg.base_lr * (epoch + 1) / self.arg.warm_up_epoch
             else:
                 lr = self.arg.base_lr * (
