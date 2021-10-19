@@ -223,11 +223,12 @@ class SAGCN(nn.Module):
 
     def latent_sample(self, mu, logvar):
         if self.training:
-            std = logvar.exp()
+            std = logvar.mul(self.noise_ratio).exp()
+            # std = logvar.exp()
             std = torch.clamp(std, max=100)
-            std = std / (torch.norm(std, 2, dim=1, keepdim=True) + 1e-4)
+            # std = std / (torch.norm(std, 2, dim=1, keepdim=True) + 1e-4)
             eps = torch.empty_like(std).normal_()
-            return self.noise_ratio * self.gain * eps.mul(std) + mu
+            return eps.mul(std) + mu
         else:
             return mu
 
