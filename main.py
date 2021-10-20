@@ -545,7 +545,7 @@ def main():
     arg = parser.parse_args()
     # initialize wandb
     wandb.init(
-        project="mmd",
+        project="mmd_new",
         entity="chibros",
         sync_tensorboard=True,
         dir=arg.log_dir
