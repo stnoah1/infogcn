@@ -50,17 +50,9 @@ def get_parser():
     parser.add_argument('--model', default=None, help='the model will be used')
     parser.add_argument('--weights', default=None, help='the weights for network initialization')
     parser.add_argument('--ignore-weights', type=str, default=[], nargs='+', help='the name of weights which will be ignored in the initialization')
-    parser.add_argument('--n_heads', type=int, default=3, help='')
+    parser.add_argument('--n-heads', type=int, default=3, help='')
     parser.add_argument('--modal-idx', type=int, default=0, help='')
     parser.add_argument('--z-prior-gain', type=int, default=1, help='')
-
-    # port
-    parser.add_argument('--n-heads', type=int, default=8, help='')
-    parser.add_argument('--embd-dim', type=int, default=64, help='')
-    parser.add_argument('--n-layers', type=int, default=6, help='')
-    parser.add_argument('--freeze-port', type=str2bool, default=True, help='')
-    parser.add_argument('--pretrain-weight', help='')
-
 
     # optim
     parser.add_argument('--base-lr', type=float, default=0.1, help='initial learning rate')

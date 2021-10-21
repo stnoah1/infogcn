@@ -27,7 +27,7 @@ def ensemble(ds, ckpt_dirs, alphas):
 
     ckpts = []
     for ckpt_dir in ckpt_dirs:
-        with open(os.path.join(ckpt_dir, 'epoch1_test_score.pkl'), 'rb') as f:
+        with open(ckpt_dir, 'rb') as f:
             ckpts.append(list(pickle.load(f).items()))
 
     right_num = total_num = right_num_5 = 0
@@ -53,9 +53,9 @@ def ensemble(ds, ckpt_dirs, alphas):
 
 def ensemble_ntu60_cv():
     ckpt_dirs = [
-        './wandb/run-20211021_042946-1klfr5ej/files', # 95.0%, modal_idx=0, pose
-        './wandb/run-20211021_084222-343ssdgx/files', # 95.5%, modal_idx=7, pose
-        './wandb/run-20211021_134505-zkmgkh6u/files', # 94.0%, modal_idx=0, vel
+        './wandb/run-20211021_042946-1klfr5ej/files/epoch1_test_score.pkl', # 95.0%, modal_idx=0, pose
+        './wandb/run-20211021_084222-343ssdgx/files/epoch1_test_score.pkl', # 95.5%, modal_idx=7, pose
+        './wandb/run-20211021_134505-zkmgkh6u/files/epoch1_test_score.pkl', # 94.0%, modal_idx=0, vel
     ]
     alphas = [1.5, 1.5, 1]
 
@@ -63,14 +63,16 @@ def ensemble_ntu60_cv():
 
 def ensemble_ntu60_cs():
     ckpt_dirs = [
-        './wandb/run-20211021_042926-1ea2za8d/files', # 89,8%, modal_idx=0, pose, random_rot
-        './wandb/run-20211020_035202-2zjkchh8/files', # 90.2%, modal_idx=7, pose
-        './wandb/run-20211021_135605-46q24qws/files', # 88.9%, modal_idx=0, vel, epoch=130
+        './wandb/run-20211021_042926-1ea2za8d/files/epoch1_test_score.pkl', # 89,8%, modal_idx=0, pose, random_rot
+        './wandb/run-20211020_035202-2zjkchh8/files/epoch1_test_score.pkl', # 90.2%, modal_idx=7, pose
+        './wandb/run-20211021_135605-46q24qws/files/epoch1_test_score.pkl', # 88.9%, modal_idx=0, vel, epoch=130
     ]
     alphas = [1.5, 1.5, 1]
 
     ensemble('ntu/xsub', ckpt_dirs, alphas)
 
 if __name__ == "__main__":
-    # ensemble_ntu60_cv()
+    print('NTU60 CV')
+    ensemble_ntu60_cv()
+    print('NTU60 CS')
     ensemble_ntu60_cs()
