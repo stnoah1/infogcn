@@ -448,22 +448,6 @@ class Processor():
             l2_z_mean_loss = np.mean(l2_z_mean_value)
             if 'ucla' in self.arg.feeder:
                 self.data_loader[ln].dataset.sample_name = np.arange(len(score))
-            accuracy = self.data_loader[ln].dataset.top_k(score, 1)
-            if accuracy > self.best_acc:
-                self.best_acc = accuracy
-                self.best_acc_epoch = epoch + 1
-
-            print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
-            if self.arg.phase == 'train':
-                self.val_writer.add_scalar('loss', cls_loss, epoch)
-                self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
-                self.val_writer.add_scalar('l2_z_mean', l2_z_mean_loss, epoch)
-                self.val_writer.add_scalar('val_acc', accuracy, epoch)
-                self.val_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
-                self.val_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
-                self.val_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
-                self.val_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
-                wandb.log({"val_acc" : accuracy})
 
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))
@@ -478,9 +462,25 @@ class Processor():
                         self.arg.work_dir, epoch + 1, ln), 'wb') as f:
                     pickle.dump(score_dict, f)
 
+            accuracy = self.data_loader[ln].dataset.top_k(score, 1)
             if accuracy > self.best_acc:
+                self.best_acc = accuracy
+                self.best_acc_epoch = epoch + 1
                 with open(f'{self.arg.work_dir}/best_score.pkl', 'wb') as f:
                     pickle.dump(score_dict, f)
+
+            print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
+            if self.arg.phase == 'train':
+                self.val_writer.add_scalar('loss', cls_loss, epoch)
+                self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
+                self.val_writer.add_scalar('l2_z_mean', l2_z_mean_loss, epoch)
+                self.val_writer.add_scalar('val_acc', accuracy, epoch)
+                self.val_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
+                self.val_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
+                self.val_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
+                self.val_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
+                wandb.log({"val_acc" : accuracy})
+
 
             # acc for each class:
             label_list = np.concatenate(label_list)
