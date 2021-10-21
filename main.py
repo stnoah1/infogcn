@@ -156,42 +156,8 @@ class Processor():
             worker_init_fn=init_seed)
 
     def load_model(self):
-        if self.arg.model == 'STGCN':
-            from model.baseline import Model
-            self.model = Model(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                num_set=self.arg.n_heads
-            )
-        elif self.arg.model == 'STGCN_A':
-            from model.baseline import ModelwA
-            self.model = ModelwA(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                num_set=self.arg.n_heads
-            )
-        elif self.arg.model == 'STGCN_VAE':
-            from model.baseline import ModelwMMD
-            self.model = ModelwMMD(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                noise_ratio=self.arg.noise_ratio,
-                in_channels=3
-            )
-        elif self.arg.model == 'SAGCN':
-            from model.baseline import SAGCN
+        if self.arg.model == 'SAGCN':
+            from model.sagcn import SAGCN
             self.model = SAGCN(
                 num_class=self.arg.num_class,
                 num_point=self.arg.num_point,
