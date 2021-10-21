@@ -129,7 +129,8 @@ class Processor():
                     window_size=64,
                     p_interval=[0.5, 1],
                     bone=self.arg.use_bone,
-                    vel=self.arg.use_vel
+                    vel=self.arg.use_vel,
+                    random_rot=self.arg.random_rot,
                 ),
                 sampler=sampler,
                 batch_size=self.arg.batch_size,
@@ -475,6 +476,10 @@ class Processor():
             if save_score:
                 with open('{}/epoch{}_{}_score.pkl'.format(
                         self.arg.work_dir, epoch + 1, ln), 'wb') as f:
+                    pickle.dump(score_dict, f)
+
+            if accuracy > self.best_acc:
+                with open(f'{self.arg.work_dir}/best_score.pkl', 'wb') as f:
                     pickle.dump(score_dict, f)
 
             # acc for each class:

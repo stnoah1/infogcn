@@ -209,7 +209,7 @@ def get_vector_property(x):
     x2 = x2.reshape(N*N, C)
     cos_sim = F.cosine_similarity(x1, x2, dim=1, eps=1e-6).view(N, N)
     cos_sim = torch.triu(cos_sim, diagonal=1).sum() * 2 / (N*(N-1))
-    pdist = LA.norm(x1-x2, ord=2, dim=1).view(N, N)
+    pdist = (LA.norm(x1-x2, ord=2, dim=1)**2/C).view(N, N)
     pdist = torch.triu(pdist, diagonal=1).sum() * 2 / (N*(N-1))
     return cos_sim, pdist
 
