@@ -5,7 +5,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-def ensemble(ds, ckpt_dirs, alphas):
+def ensemble(ds, items):
     if 'ntu120' in ds:
         num_class=120
         if 'xsub' in ds:
@@ -24,6 +24,8 @@ def ensemble(ds, ckpt_dirs, alphas):
             label = np.where(npz_data['y_test'] > 0)[1]
     else:
         raise NotImplementedError
+
+    ckpt_dirs, alphas = list(zip(*items))
 
     ckpts = []
     for ckpt_dir in ckpt_dirs:
@@ -52,24 +54,29 @@ def ensemble(ds, ckpt_dirs, alphas):
 
 
 def ensemble_ntu60_cv():
-    ckpt_dirs = [
-        './wandb/run-20211021_042946-1klfr5ej/files/epoch1_test_score.pkl', # 95.0%, modal_idx=0, pose
-        './wandb/run-20211021_084222-343ssdgx/files/epoch1_test_score.pkl', # 95.5%, modal_idx=7, pose
-        './wandb/run-20211021_134505-zkmgkh6u/files/epoch1_test_score.pkl', # 94.0%, modal_idx=0, vel
+    items = [
+        ('./wandb/run-20211021_084222-343ssdgx/files/epoch1_test_score.pkl', 1.5), # 95.5%, modal_idx=7, pose
+        ('./wandb/run-20211021_042946-1klfr5ej/files/epoch1_test_score.pkl', 1.5), # 95.0%, modal_idx=0, pose
+        ('./wandb/run-20211021_174320-3poxff45/files/best_score.pkl', 1.5), # 95.3%,  model_idx=5, pose
+        ('./wandb/run-20211021_195555-18yn6ma4/files/epoch1_test_score.pkl', 1), # 93.6%, modal_idx=7, vel
+        ('./wandb/run-20211021_134505-zkmgkh6u/files/epoch1_test_score.pkl', 1), # 94.0%, modal_idx=0, vel
     ]
-    alphas = [1.5, 1.5, 1]
 
-    ensemble('ntu/xview', ckpt_dirs, alphas)
+    ensemble('ntu/xview', items)
 
 def ensemble_ntu60_cs():
-    ckpt_dirs = [
-        './wandb/run-20211021_042926-1ea2za8d/files/epoch1_test_score.pkl', # 89,8%, modal_idx=0, pose, random_rot
-        './wandb/run-20211020_035202-2zjkchh8/files/epoch1_test_score.pkl', # 90.2%, modal_idx=7, pose
-        './wandb/run-20211021_135605-46q24qws/files/epoch1_test_score.pkl', # 88.9%, modal_idx=0, vel, epoch=130
-    ]
-    alphas = [1.5, 1.5, 1]
+    items = [
+        ('./wandb/run-20211021_152338-3tne14dx/files/best_score.pkl',        1.5), # 90.5%, modal_idx=7, pose, random_rot
+        ('./wandb/run-20211021_235149-2g8ul0tg/files/epoch1_test_score.pkl', 1.5), # 89.7 modal_idx=6, pose
+        ('./wandb/run-20211021_042926-1ea2za8d/files/epoch1_test_score.pkl', 1.5), # 89.8%, modal_idx=0, pose, random_rot
+        ('./wandb/run-20211021_175515-3pr6bb8c/files/best_score.pkl', 1), # 88.8%, modal_idx=6, vel
+        ('./wandb/run-20211021_111209-1j072ad2/files/epoch1_test_score.pkl', 1), # 88.5%, modal_idx=5, vel
+        ('./wandb/run-20211021_135605-46q24qws/files/epoch1_test_score.pkl', 1), # 88.9%, modal_idx=0, vel, epoch=130
+        # ('./wandb/run-20211020_035202-2zjkchh8/files/epoch1_test_score.pkl', 1), # 90.2%, modal_idx=7, pose
 
-    ensemble('ntu/xsub', ckpt_dirs, alphas)
+    ]
+
+    ensemble('ntu/xsub', items)
 
 if __name__ == "__main__":
     print('NTU60 CV')
