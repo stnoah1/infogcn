@@ -87,13 +87,21 @@ def ensemble_ntu120_cs():
 
 def ensemble_ntu120_cset(): # alpha = 1e-3
     items = [
-        ('./wandb/run-20211024_051020-2v3vm55l/files/best_score.pkl', 1.5), # 88.1%, modal_idx=7, pose, random_rot
-        # ('./wandb/run-20211023_055740-1d58qxoa/files/best_score.pkl', 1.5), # 88.2%, modal_idx=6, pose, random_rot
-        ('./wandb/run-20211023_024235-1g4jwn6g/files/best_score.pkl', 1.5), # 86.4%, modal_idx=0, pose, random_rot
-        # ('./wandb/run-20211023_162158-3r8u9pf9/files/best_score.pkl', 1),   # 84.3%, modal_idx=7, vel, random_rot
-        # ('./wandb/run-20211023_162341-1iu7ck41/files/best_score.pkl', 1),   # 84.4%, modal_dix=6, vel, random_rot
-        # ('./wandb/run-20211023_162359-23l8mw9k/files/best_score.pkl', 1),   # 84.4%, modal_dix=0, vel, random_rot
+        ('./wandb/run-20211024_203402-1msd7rcd/files/best_score.pkl', 1.5), # 88.5%, modal_idx=7, pose, random_rot, alpha=1e-1
+        ('./wandb/run-20211025_065304-3msq6zja/files/best_score.pkl', 1.5), # 88.2%, modal_idx=6, pose, random_rot, alpha=1e-1
+        # ('./wandb/run-20211025_065306-1lk374mv/files/best_score.pkl', 1.5), # 87.6%, modal_idx=5, pose, random_rot, alpha=1e-1
+        # ('./wandb/run-20211024_203401-3kx1oejz/files/best_score.pkl', 1.5), # 86.3%, modal_idx=0, pose, random_rot, alpha=1e-1
+        # ('./wandb/run-20211024_203403-1lwarbvs/files/best_score.pkl', 1), # 84.8%, modal_idx=7, vel, random_rot, alpha=1e-1
+        # ('./wandb/run-20211025_065307-3ehz8v80/files/best_score.pkl', 1), # 84.4% modal_idx=6, vel, random_rot, alpha=1e-1
+        # ('./wandb/run-20211025_065307-3lg8eqi5/files/best_score.pkl', 1), # 83.8%, modal_idx=5, vel, random_rot, alpha=1e-1
+        # ('./wandb/run-20211024_203404-2ek60kui/files/best_score.pkl', 1), # 84.4%, modal_idx=0, vel, random_rot, alpha=1e-1
     ]
+        # ('./wandb/run-20211024_051020-2v3vm55l/files/best_score.pkl', 1.5), # 88.1%, modal_idx=7, pose, random_rot, alpha=1e-3
+        # ('./wandb/run-20211023_055740-1d58qxoa/files/best_score.pkl', 1.5), # 88.2%, modal_idx=6, pose, random_rot, alpha=1e-3
+        # ('./wandb/run-20211023_024235-1g4jwn6g/files/best_score.pkl', 1.5), # 86.4%, modal_idx=0, pose, random_rot, alpha=1e-3
+        # ('./wandb/run-20211023_162158-3r8u9pf9/files/best_score.pkl', 1),   # 84.3%, modal_idx=7, vel, random_rot, alpha=1e-3
+        # ('./wandb/run-20211023_162341-1iu7ck41/files/best_score.pkl', 1),   # 84.4%, modal_dix=6, vel, random_rot, alpha=1e-3
+        # ('./wandb/run-20211023_162359-23l8mw9k/files/best_score.pkl', 1),   # 84.4%, modal_dix=0, vel, random_rot, alpha=1e-3
     ensemble('ntu120/xset', items)
 
 if __name__ == "__main__":
