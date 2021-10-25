@@ -114,6 +114,7 @@ class Processor():
                 p_interval=[0.5, 1],
                 bone=self.arg.use_bone,
                 vel=self.arg.use_vel,
+                random_rot=self.arg.random_rot,
                 sort=True if self.arg.balanced_sampling else False,
             )
             if self.arg.balanced_sampling:
@@ -123,15 +124,7 @@ class Processor():
                 sampler = None
                 shuffle = True
             self.data_loader['train'] = torch.utils.data.DataLoader(
-                dataset=Feeder(
-                    data_path=data_path,
-                    split='train',
-                    window_size=64,
-                    p_interval=[0.5, 1],
-                    bone=self.arg.use_bone,
-                    vel=self.arg.use_vel,
-                    random_rot=self.arg.random_rot,
-                ),
+                dataset=dt,
                 sampler=sampler,
                 batch_size=self.arg.batch_size,
                 shuffle=shuffle,
