@@ -276,7 +276,7 @@ class Processor():
         self.train_writer.add_scalar('epoch', epoch, self.global_step)
         self.record_time()
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
-        process = tqdm(loader, ncols=40, total=self.arg.n_desired//self.arg.batch_size)
+        process = tqdm(loader, ncols=40)
 
         for batch_idx, (data, label, index) in enumerate(process):
             self.global_step += 1
