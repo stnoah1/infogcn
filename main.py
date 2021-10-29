@@ -25,7 +25,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from opts import get_parser
-from loss import LabelSmoothingCrossEntropy, mmd_loss
+from loss import LabelSmoothingCrossEntropy, get_mmd_loss
 
 from utils import get_vector_property
 from utils import BalancedSampler as BS
@@ -286,8 +286,8 @@ class Processor():
             timer['dataloader'] += self.split_time()
 
             # forward
-            y_hat, z, z_prior = self.model(data)
-            mmd_loss, l2_z_mean, z_mean = mmd_loss(z, z_prior, y, self.arg.num_class)
+            y_hat, z = self.model(data)
+            mmd_loss, l2_z_mean, z_mean = get_mmd_loss(z, self.model.z_prior, y, self.arg.num_class)
             cos_z, dis_z = get_vector_property(z_mean)
             cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
             cos_z_value.append(cos_z.data.item())
@@ -347,7 +347,7 @@ class Processor():
 
             torch.save(weights, self.arg.model_saved_name + '-' + str(epoch+1) + '-' + str(int(self.global_step)) + '.pt')
 
-    def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None):
+    def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None, save_z=False):
         if wrong_file is not None:
             f_w = open(wrong_file, 'w')
         if result_file is not None:
@@ -367,14 +367,17 @@ class Processor():
             cos_z_prior_value = []
             dis_z_prior_value = []
             step = 0
+            z_list = []
             process = tqdm(self.data_loader[ln], ncols=40)
             for batch_idx, (data, y, index) in enumerate(process):
                 label_list.append(y)
                 with torch.no_grad():
                     data = data.float().cuda()
                     y = y.long().cuda()
-                    y_hat, z, z_prior = self.model(data)
-                    mmd_loss, l2_z_mean, z_mean = mmd_loss(z, z_prior, y, self.arg.num_class)
+                    y_hat, z = self.model(data)
+                    if save_z:
+                        z_list.append(z.data.cpu().numpy())
+                    mmd_loss, l2_z_mean, z_mean = get_mmd_loss(z, self.model.z_prior, y, self.arg.num_class)
                     cos_z, dis_z = get_vector_property(z_mean)
                     cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
                     cos_z_value.append(cos_z.data.item())
@@ -443,6 +446,7 @@ class Processor():
 
 
             # acc for each class:
+            z_list = np.concatenate(z_list)
             label_list = np.concatenate(label_list)
             pred_list = np.concatenate(pred_list)
             confusion = confusion_matrix(label_list, pred_list)
@@ -453,6 +457,9 @@ class Processor():
                 writer = csv.writer(f)
                 writer.writerow(each_acc)
                 writer.writerows(confusion)
+
+            if save_z:
+                np.savez(f'{self.arg.work_dir}/z_values.npz', z=z_list, z_prior=self.model.z_prior.cpu().numpy(), y=label_list)
 
     def start(self):
         if self.arg.phase == 'train':
@@ -501,7 +508,7 @@ class Processor():
             self.arg.print_log = False
             self.print_log('Model:   {}.'.format(self.arg.model))
             self.print_log('Weights: {}.'.format(self.arg.weights))
-            self.eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'], wrong_file=wf, result_file=rf)
+            self.eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'], wrong_file=wf, result_file=rf, save_z=True)
             self.print_log('Done.\n')
 
 def main():

@@ -112,4 +112,4 @@ class SAGCN(nn.Module):
 
         y_hat = self.decoder(z)
 
-        return y_hat, z, self.z_prior
+        return y_hat, z
