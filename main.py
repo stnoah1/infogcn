@@ -25,7 +25,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from opts import get_parser
-from loss import LabelSmoothingCrossEntropy
+from loss import LabelSmoothingCrossEntropy, mmd_loss
 
 from utils import get_vector_property
 from utils import BalancedSampler as BS
@@ -278,16 +278,16 @@ class Processor():
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
         process = tqdm(loader, ncols=40)
 
-        for batch_idx, (data, label, index) in enumerate(process):
+        for batch_idx, (data, y, index) in enumerate(process):
             self.global_step += 1
             with torch.no_grad():
                 data = data.float().cuda()
-                label = label.long().cuda()
+                y = y.long().cuda()
             timer['dataloader'] += self.split_time()
 
             # forward
-            output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
-            hist = torch.histc(label, bins=60, min=0, max=59)
+            y_hat, z, z_prior = self.model(data)
+            mmd_loss, l2_z_mean, z_mean = mmd_loss(z, z_prior, y, self.arg.num_class)
             cos_z, dis_z = get_vector_property(z_mean)
             cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
             cos_z_value.append(cos_z.data.item())
@@ -295,7 +295,7 @@ class Processor():
             cos_z_prior_value.append(cos_z_prior.data.item())
             dis_z_prior_value.append(dis_z_prior.data.item())
 
-            cls_loss = self.loss(output, label)
+            cls_loss = self.loss(y_hat, y)
             loss = self.arg.alpha * mmd_loss + self.arg.beta * l2_z_mean + cls_loss
             # backward
             self.optimizer.zero_grad()
@@ -312,8 +312,8 @@ class Processor():
             l2_z_mean_value.append(l2_z_mean.data.item())
             timer['model'] += self.split_time()
 
-            value, predict_label = torch.max(output.data, 1)
-            acc = torch.mean((predict_label == label.data).float())
+            value, predict_label = torch.max(y_hat.data, 1)
+            acc = torch.mean((predict_label == y.data).float())
             acc_value.append(acc.data.item())
 
             timer['statistics'] += self.split_time()
@@ -368,33 +368,34 @@ class Processor():
             dis_z_prior_value = []
             step = 0
             process = tqdm(self.data_loader[ln], ncols=40)
-            for batch_idx, (data, label, index) in enumerate(process):
-                label_list.append(label)
+            for batch_idx, (data, y, index) in enumerate(process):
+                label_list.append(y)
                 with torch.no_grad():
                     data = data.float().cuda()
-                    label = label.long().cuda()
-                    output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
+                    y = y.long().cuda()
+                    y_hat, z, z_prior = self.model(data)
+                    mmd_loss, l2_z_mean, z_mean = mmd_loss(z, z_prior, y, self.arg.num_class)
                     cos_z, dis_z = get_vector_property(z_mean)
                     cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
                     cos_z_value.append(cos_z.data.item())
                     dis_z_value.append(dis_z.data.item())
                     cos_z_prior_value.append(cos_z_prior.data.item())
                     dis_z_prior_value.append(dis_z_prior.data.item())
-                    cls_loss = self.loss(output, label)
+                    cls_loss = self.loss(y_hat, y)
                     loss = self.arg.alpha*mmd_loss + self.arg.beta*l2_z_mean + cls_loss
-                    score_frag.append(output.data.cpu().numpy())
+                    score_frag.append(y_hat.data.cpu().numpy())
                     loss_value.append(loss.data.item())
                     cls_loss_value.append(cls_loss.data.item())
                     mmd_loss_value.append(mmd_loss.data.item())
                     l2_z_mean_value.append(l2_z_mean.data.item())
 
-                    _, predict_label = torch.max(output.data, 1)
+                    _, predict_label = torch.max(y_hat.data, 1)
                     pred_list.append(predict_label.data.cpu().numpy())
                     step += 1
 
                 if wrong_file is not None or result_file is not None:
                     predict = list(predict_label.cpu().numpy())
-                    true = list(label.data.cpu().numpy())
+                    true = list(y.data.cpu().numpy())
                     for i, x in enumerate(predict):
                         if result_file is not None:
                             f_r.write(str(x) + ',' + str(true[i]) + '\n')

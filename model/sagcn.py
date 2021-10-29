@@ -78,14 +78,7 @@ class SAGCN(nn.Module):
         else:
             return mu
 
-    def get_loss(self, z, y):
-        y_valid = [i_cls in y for i_cls in range(self.num_class)]
-        z_mean = torch.stack([z[y==i_cls].mean(dim=0) for i_cls in range(self.num_class)], dim=0)
-        l2_z_mean= LA.norm(z.mean(dim=0), ord=2)
-        mmd_loss = F.mse_loss(z_mean[y_valid], self.z_prior[y_valid].to(z.device))
-        return mmd_loss, l2_z_mean, z_mean[y_valid]
-
-    def forward(self, x, y):
+    def forward(self, x):
         N, C, T, V, M = x.size()
 
         x = rearrange(x, 'n c t v m -> (n m t) v c', m=M, v=V).contiguous()
@@ -118,6 +111,5 @@ class SAGCN(nn.Module):
         z = self.latent_sample(z_mu, z_logvar)
 
         y_hat = self.decoder(z)
-        mmd_loss, l2_z_mean, z_mean = self.get_loss(z, y)
 
-        return y_hat, mmd_loss, l2_z_mean, z_mean
+        return y_hat, z, self.z_prior

@@ -66,3 +66,11 @@ def feature_transform_reguliarzer(trans):
     loss = torch.mean(torch.norm(torch.bmm(trans, trans.transpose(2, 1)) - I, dim=(1, 2)))
     return loss
 
+
+def mmd_loss(z, z_prior, y, num_cls):
+    y_valid = [i_cls in y for i_cls in range(num_cls)]
+    z_mean = torch.stack([z[y==i_cls].mean(dim=0) for i_cls in range(num_cls)], dim=0)
+    l2_z_mean= LA.norm(z.mean(dim=0), ord=2)
+    mmd_loss = F.mse_loss(z_mean[y_valid], z_prior[y_valid].to(z.device))
+    return mmd_loss, l2_z_mean, z_mean[y_valid]
+
