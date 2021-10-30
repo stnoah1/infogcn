@@ -446,7 +446,6 @@ class Processor():
 
 
             # acc for each class:
-            z_list = np.concatenate(z_list)
             label_list = np.concatenate(label_list)
             pred_list = np.concatenate(pred_list)
             confusion = confusion_matrix(label_list, pred_list)
@@ -459,6 +458,7 @@ class Processor():
                 writer.writerows(confusion)
 
             if save_z:
+                z_list = np.concatenate(z_list)
                 np.savez(f'{self.arg.work_dir}/z_values.npz', z=z_list, z_prior=self.model.z_prior.cpu().numpy(), y=label_list)
 
     def start(self):
