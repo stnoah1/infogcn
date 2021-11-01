@@ -80,13 +80,13 @@ class SAGCN(nn.Module):
 
     def forward(self, x):
         N, C, T, V, M = x.size()
-
         x = rearrange(x, 'n c t v m -> (n m t) v c', m=M, v=V).contiguous()
+        x = self.A_vector.to(x.device).expand(N*M*T, -1, -1) @ x
+
         x = self.to_joint_embedding(x)
         x += self.pos_embedding[:, :self.num_point]
-
-        x = self.A_vector.to(x.device).expand(N*M*T, -1, -1) @ x
         x = rearrange(x, '(n m t) v c -> n (m v c) t', m=M, t=T).contiguous()
+
         x = self.data_bn(x)
         x = rearrange(x, 'n (m v c) t -> (n m) c t v', m=M, v=V).contiguous()
         x = self.l2(x)
