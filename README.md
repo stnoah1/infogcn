@@ -89,7 +89,7 @@ python main.py --model=SAGCN --half=True --batch_size=256 --test_batch_size=256 
 ```
 python main.py --model=SAGCN --half=True --test_batch_size=256 --n_heads=3 --num_worker=4 \
     --modal_idx=0 --dataset=ntu --num_class=60 --use_vel=False --datacase=CS \
-    --phase=test --save_score=True --weights=<work_dir>/files/best_score.pt
+    --phase=test --save_score=True --weights=<path_to_weight>
 ```
 
 - To ensemble the results of different modalities, run the following command:
