@@ -14,7 +14,7 @@ def get_parser():
     parser.add_argument('--debug', type=str2bool, default=False, help='Debug mode; default false')
     parser.add_argument('--log_dir', type=str, default='.', help='')
     parser.add_argument('--model_saved_name', default='')
-    parser.add_argument('--noise_ratio', type=float, default=0.1, help='initial learning rate')
+    parser.add_argument('--noise_ratio', type=float, default=0.5, help='')
 
     # data
     parser.add_argument('--n_desired', type=int, default=40000, help='')
@@ -43,7 +43,7 @@ def get_parser():
     parser.add_argument('--feeder', default='feeders.feeder_ntu.Feeder', help='data loader will be used')
     parser.add_argument('--num_worker', type=int, default=8, help='the number of worker for data loader')
     parser.add_argument('--balanced_sampling', type=str2bool, default=False, help='the number of worker for data loader')
-    parser.add_argument('--random_rot', type=str2bool, default=False, help='')
+    parser.add_argument('--random_rot', type=str2bool, default=True, help='')
 
     # model
     parser.add_argument('--model', default=None, help='the model will be used')
@@ -62,11 +62,11 @@ def get_parser():
     parser.add_argument('--test_batch_size', type=int, default=64, help='test batch size')
     parser.add_argument('--start_epoch', type=int, default=0, help='start training from which epoch')
     parser.add_argument('--num_epoch', type=int, default=110, help='stop training in which epoch')
-    parser.add_argument('--weight_decay', type=float, default=0.0004, help='weight decay for optimizer')
+    parser.add_argument('--weight_decay', type=float, default=0.0005, help='weight decay for optimizer')
     parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
     parser.add_argument('--warm_up_epoch', type=int, default=5)
-    parser.add_argument('--lambda_1', type=float, default=1.)
-    parser.add_argument('--lambda_2', type=float, default=1.)
+    parser.add_argument('--lambda_1', type=float, default=1e-4)
+    parser.add_argument('--lambda_2', type=float, default=1e-1)
 
     # apex
     parser.add_argument('--half', type=str2bool, default=True, help='Use half-precision (FP16) training')

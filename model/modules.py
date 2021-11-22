@@ -133,9 +133,9 @@ class SA_GC(nn.Module):
         return out
 
 class EncodingBlcok(nn.Module):
-    def __init__(self, in_channels, out_channels, A, stride=1, residual=True, adaptive=True, use_port=False):
+    def __init__(self, in_channels, out_channels, A, stride=1, residual=True):
         super(EncodingBlcok, self).__init__()
-        self.agcn = SA_GC(in_channels, out_channels, A, adaptive=adaptive, use_port=use_port)
+        self.agcn = SA_GC(in_channels, out_channels, A)
         self.tcn = MS_TCN(out_channels, out_channels, kernel_size=5, stride=stride,
                          dilations=[1, 2], residual=False)
 

@@ -61,11 +61,11 @@ class InfoGCN(nn.Module):
         else:
             self.drop_out = lambda x: x
 
-    def get_A(self, graph, i):
+    def get_A(self, graph, k):
         Graph = import_class(graph)()
         A_outward = Graph.A_outward_binary
         I = np.eye(Graph.num_node)
-        return  torch.from_numpy(I - np.linalg.matrix_power(A_outward, 8-i))
+        return  torch.from_numpy(I - np.linalg.matrix_power(A_outward, k))
 
     def latent_sample(self, mu, logvar):
         if self.training:

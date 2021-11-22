@@ -26,6 +26,7 @@ from tqdm import tqdm
 
 from opts import get_parser
 from loss import LabelSmoothingCrossEntropy, get_mmd_loss
+from model.infogcn import InfoGCN
 
 from utils import get_vector_property
 from utils import BalancedSampler as BS
@@ -135,20 +136,18 @@ class Processor():
             worker_init_fn=init_seed)
 
     def load_model(self):
-        if self.arg.model == 'SAGCN':
-            from model.sagcn import SAGCN
-            self.model = SAGCN(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                num_set=self.arg.n_heads,
-                k=self.arg.modal_idx,
-                gain=self.arg.z_prior_gain
-            )
+        self.model = InfoGCN(
+            num_class=self.arg.num_class,
+            num_point=self.arg.num_point,
+            num_person=self.arg.num_person,
+            graph='graph.ntu_rgb_d.Graph',
+            in_channels=3,
+            drop_out=0,
+            adaptive=True,
+            num_set=self.arg.n_heads,
+            k=self.arg.modal_idx,
+            gain=self.arg.z_prior_gain
+        )
         self.loss = LabelSmoothingCrossEntropy().cuda()
 
         if self.arg.weights:
