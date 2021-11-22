@@ -97,11 +97,13 @@ python main.py --model=SAGCN --half=True --test_batch_size=256 --n_heads=3 --num
 python ensemble.py \
    --dataset=ntu/xsub \
    --position_ckpts \
-   <work_dir_1>/files/best_score.pkl \
-   <work_dir_2>/files/best_score.pkl \
+      <work_dir_1>/files/best_score.pkl \
+      <work_dir_2>/files/best_score.pkl \
+      ...
    --motion_ckpts \
-   <work_dir_3>/files/best_score.pkl \
-   <work_dir_4>/files/best_score.pkl \
+      <work_dir_3>/files/best_score.pkl \
+      <work_dir_4>/files/best_score.pkl \
+      ...
 
 ```
 
