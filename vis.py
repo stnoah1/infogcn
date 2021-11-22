@@ -14,14 +14,6 @@ def plot_attention_weights(attentions):
     num_layer = len(attentions)
     num_attn= attentions[0].shape[0]
     fig = plt.figure(figsize=(num_attn, num_layer))
-#     joints_name = [
-#         'W',
-#         'T1', 'T2', 'T3', 'T4',
-#         'I1', 'I2', 'I3', 'I4',
-#         'M1', 'M2', 'M3', 'M4',
-#         'R1', 'R2', 'R3', 'R4',
-#         'P1', 'P2', 'P3', 'P4',
-#     ]
 
     for layer in range(num_layer):
         for head in range(num_attn):
@@ -31,15 +23,6 @@ def plot_attention_weights(attentions):
             ax.matshow(attentions[layer][head], cmap='viridis')
 
             fontdict = {'fontsize': 7}
-
-#         ax.set_xticks(range(len(joints_name)))
-#         ax.set_yticks(range(len(joints_name)))
-
-#         # ax.set_ylim(len(joints_name)-1.5, -0.5)
-
-#         ax.set_xticklabels(joints_name, fontdict=fontdict, rotation=90)
-
-#         ax.set_yticklabels(joints_name, fontdict=fontdict)
 
             ax.set_xlabel('Head {}'.format(head+1), fontdict={'fontsize': 5})
             ax.axis('off')
@@ -115,8 +98,4 @@ def plot_dr(x_tsne, x_pca, label, i_plot, name):
     plotf = [plot_sns_scatter, plot_sns_lm, plot_plt_scatter][i_plot]
     plot_subdr(x_tsne, tsnef, plotf, 't-SNE: ', 'tsne_', False)
     plot_subdr(x_pca, pcaf, plotf, 'PCA: ', 'pca_')
-
-
-
-
 

@@ -1,152 +1,115 @@
+import math
+
+import numpy as np
 import torch
-from torch import nn, einsum
 import torch.nn.functional as F
 
+from torch import nn, einsum
+from torch.autograd import Variable
+from torch import linalg as LA
+
+from model.ms_tcn import MultiScale_TemporalConv as MS_TCN
+from model.ms_gcn import MultiScale_GraphConv as MS_GCN
+from model.ms_gcn import MultiHead_GraphConv as MH_GCN
+from model.port import MORT
 from einops import rearrange, repeat
-from einops.layers.torch import Rearrange
 
-class PreNorm(nn.Module):
-    def __init__(self, dim, fn):
-        super().__init__()
-        self.norm = nn.LayerNorm(dim)
-        self.fn = fn
-    def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
+from utils import set_parameter_requires_grad, get_vector_property
 
-class FeedForward(nn.Module):
-    def __init__(self, dim, hidden_dim, dropout=0.):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(dim, hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, dim),
-            nn.Dropout(dropout)
-        )
-    def forward(self, x):
-        return self.net(x)
+from model.modules import import_class, bn_init, EncodingBlock
 
 
-class MPMHead(nn.Module):
-    def __init__(self, dim, proj_dim):
-        super().__init__()
-        self.dense = nn.Linear(dim, dim)
-        self.LayerNorm = nn.LayerNorm(dim, eps=1e-12)
-        self.activation = nn.GELU()
-        self.decoder = nn.Linear(dim, proj_dim, bias=False)
-        self.bias = nn.Parameter(torch.zeros(proj_dim))
-        self.decoder.bias = self.bias
+class InfoGCN(nn.Module):
+    def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3,
+                 drop_out=0, adaptive=True, num_set=3, noise_ratio=0.1, k=0, gain=1):
+        super(InfoGCN, self).__init__()
 
-    def forward(self, x):
-        x = self.dense(x)
-        x = self.LayerNorm(x)
-        x = self.activation(x)
-        x = self.decoder(x)
-        return x
+        A = np.stack([np.eye(num_point)] * num_set, axis=0)
 
-class Attention(nn.Module):
-    def __init__(self, dim, heads=8, dim_head=64, dropout=0., reattn=False):
-        super().__init__()
-        inner_dim = dim_head *  heads
-        self.heads = heads
-        self.scale = dim_head ** -0.5
-        self.to_qkv = nn.Conv1d(dim, inner_dim*3, 1)
-        self.reattn = reattn
-        if self.reattn:
-            self.reattn_weights = nn.Parameter(torch.randn(heads, heads))
-            self.reattn_norm = nn.Sequential(
-                Rearrange('b h i j -> b i j h'),
-                nn.LayerNorm(heads),
-                Rearrange('b i j h -> b h i j')
-            )
-        self.to_out = nn.Sequential(
-            nn.Linear(inner_dim, dim),
-            nn.Dropout(dropout)
-        )
+        base_channel = 64
+        self.num_class = num_class
+        self.num_point = num_point
+        self.data_bn = nn.BatchNorm1d(num_person * base_channel * num_point)
+        self.noise_ratio = noise_ratio
+        self.z_prior = torch.empty(num_class, base_channel*4)
+        self.A_vector = self.get_A(graph, k)
+        self.gain = gain
+        self.to_joint_embedding = nn.Linear(in_channels, base_channel)
+        self.pos_embedding = nn.Parameter(torch.randn(1, self.num_point, base_channel))
 
-    def forward(self, x):
-        b, n, _, h = *x.shape, self.heads
-        x = x.permute(0, 2, 1).contiguous()
-        x = self.to_qkv(x).permute(0, 2, 1).contiguous()
-        qkv = x.chunk(3, dim=-1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = h), qkv)
+        self.l2 = EncodingBlock(base_channel, base_channel,A, adaptive=adaptive)
+        self.l3 = EncodingBlock(base_channel, base_channel,A, adaptive=adaptive)
+        self.l4 = EncodingBlock(base_channel, base_channel,A, adaptive=adaptive)
+        self.l5 = EncodingBlock(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
+        self.l6 = EncodingBlock(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l7 = EncodingBlock(base_channel*2, base_channel*2, A, adaptive=adaptive)
+        self.l8 = EncodingBlock(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
+        self.l9 = EncodingBlock(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.l10 = EncodingBlock(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.fc = nn.Linear(base_channel*4, base_channel*4)
+        self.fc_mu = nn.Linear(base_channel*4, base_channel*4)
+        self.fc_logvar = nn.Linear(base_channel*4, base_channel*4)
+        self.decoder = nn.Linear(base_channel*4, num_class)
+        nn.init.orthogonal_(self.z_prior, gain=gain)
+        nn.init.xavier_uniform_(self.fc.weight, gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self.fc_mu.weight, gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self.fc_logvar.weight, gain=nn.init.calculate_gain('relu'))
+        nn.init.normal_(self.decoder.weight, 0, math.sqrt(2. / num_class))
+        bn_init(self.data_bn, 1)
+        if drop_out:
+            self.drop_out = nn.Dropout(drop_out)
+        else:
+            self.drop_out = lambda x: x
 
-        # attention
-        dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
-        attn = dots.softmax(dim=-1).float()
+    def get_A(self, graph, i):
+        Graph = import_class(graph)()
+        A_outward = Graph.A_outward_binary
+        I = np.eye(Graph.num_node)
+        return  torch.from_numpy(I - np.linalg.matrix_power(A_outward, 8-i))
 
-        if self.reattn:
-            # re-attention
-            attn = einsum('b h i j, h g -> b g i j', attn, self.reattn_weights)
-            attn = self.reattn_norm(attn)
-
-        # aggregate and out
-        out = einsum('b h i j, b h j d -> b h i d', attn, v.float())
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        out =  self.to_out(out)
-        return out, attn
-
-class TransformerEncoder(nn.Module):
-    def __init__(self, dim, heads, dim_head, mlp_dim, dropout):
-        super().__init__()
-        self.self_attn = PreNorm(dim, Attention(dim, heads=heads, dim_head=dim_head, dropout=dropout))
-        self.ffn = PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout))
+    def latent_sample(self, mu, logvar):
+        if self.training:
+            std = logvar.mul(self.noise_ratio).exp()
+            # std = logvar.exp()
+            std = torch.clamp(std, max=100)
+            # std = std / (torch.norm(std, 2, dim=1, keepdim=True) + 1e-4)
+            eps = torch.empty_like(std).normal_()
+            return eps.mul(std) + mu
+        else:
+            return mu
 
     def forward(self, x):
-        res = x
-        x, attn_weight = self.self_attn(x)
-        x = x + res
-        x = self.ffn(x) + x
-        return x, attn_weight
+        N, C, T, V, M = x.size()
+        x = rearrange(x, 'n c t v m -> (n m t) v c', m=M, v=V).contiguous()
+        x = self.A_vector.to(x.device).expand(N*M*T, -1, -1) @ x
 
-class Transformer(nn.Module):
-    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout=0.):
-        super().__init__()
-        self.layers = nn.ModuleList([
-            TransformerEncoder(dim, heads, dim_head, mlp_dim, dropout) for _ in range(depth)
-        ])
-    def forward(self, x):
-        hidden_states = []
-        attn_weights = []
-        for trans_enc in self.layers:
-            x, attn_weight = trans_enc(x)
-            hidden_states.append(x)
-            attn_weights.append(attn_weight)
-        return x, attn_weights, hidden_states
+        x = self.to_joint_embedding(x)
+        x += self.pos_embedding[:, :self.num_point]
+        x = rearrange(x, '(n m t) v c -> n (m v c) t', m=M, t=T).contiguous()
 
-class SpatialFeatureAggregator(nn.Module):
-    def __init__(self, dim, heads, mlp_dim, dropout):
-        super().__init__()
-        self.ffn = PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout))
-        self.to_out = nn.Sequential(
-            nn.Linear(dim*heads, dim),
-            nn.Dropout(dropout)
-        )
+        x = self.data_bn(x)
+        x = rearrange(x, 'n (m v c) t -> (n m) c t v', m=M, v=V).contiguous()
+        x = self.l2(x)
+        x = self.l3(x)
+        x = self.l4(x)
+        x = self.l5(x)
+        x = self.l6(x)
+        x = self.l7(x)
+        x = self.l8(x)
+        x = self.l9(x)
+        x = self.l10(x)
 
-    def forward(self, x, attn_weights):
-        out = einsum('b h i n, b i d -> b h n d', attn_weights, x.float())
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        out = self.to_out(out)
-        out = self.ffn(out) + out
-        return out
+        # N*M,C,T,V
+        c_new = x.size(1)
+        x = x.view(N, M, c_new, -1)
+        x = x.mean(3).mean(1)
+        x = F.relu(self.fc(x))
+        x = self.drop_out(x)
 
-class MORT(nn.Module):
-    def __init__(self, *, dim, depth, heads, mlp_dim, channels=3, dim_head=64, dropout=0., emb_dropout=0.):
-        super().__init__()
-        self.num_joints = 25
+        z_mu = self.fc_mu(x)
+        z_logvar = self.fc_logvar(x)
+        z = self.latent_sample(z_mu, z_logvar)
 
-        self.to_joint_embedding = nn.Linear(channels, dim)
-        self.pos_embedding = nn.Parameter(torch.randn(1, self.num_joints, dim))
-        self.dropout = nn.Dropout(emb_dropout)
-        self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
-        # self.to_latent = nn.Identity()
-        self.mpm_head = MPMHead(dim, channels)
+        y_hat = self.decoder(z)
 
-    def forward(self, skel):
-        x = self.to_joint_embedding(skel)
-        x += self.pos_embedding[:, :self.num_joints]
-        x = self.dropout(x)
-        x, attns, hidden_states = self.transformer(x)
-        proj = self.mpm_head(x)
-        return proj, attns, hidden_states
-
+        return y_hat, z

@@ -282,7 +282,7 @@ class Processor():
             dis_z_prior_value.append(dis_z_prior.data.item())
 
             cls_loss = self.loss(y_hat, y)
-            loss = self.arg.alpha * mmd_loss + self.arg.beta * l2_z_mean + cls_loss
+            loss = self.arg.lambda_2* mmd_loss + self.arg.lambda_1* l2_z_mean + cls_loss
             # backward
             self.optimizer.zero_grad()
             if self.arg.half:
@@ -323,15 +323,14 @@ class Processor():
             k: '{:02d}%'.format(int(round(v * 100 / sum(timer.values()))))
             for k, v in timer.items()
         }
-        self.print_log(
-            f'\tMean training loss: {np.mean(loss_value):.4f}.  Mean training acc: {np.mean(acc_value)*100):.2f}%.')
-        self.print_log(f'\tTime consumption: [Data]{dataloader}, [Network]{model}'.format(**proportion))
+        self.print_log(f'\tTraining loss: {np.mean(loss_value):.4f}.  Training acc: {np.mean(acc_value)*100):.2f}%.')
+        self.print_log(f'\tTime consumption: [Data]{proportion["dataloader"]}, [Network]{proportion["model"]}')
 
         if save_model:
             state_dict = self.model.state_dict()
             weights = OrderedDict([[k.split('module.')[-1], v.cpu()] for k, v in state_dict.items()])
 
-            torch.save(weights, self.arg.model_saved_name + '-' + str(epoch+1) + '-' + str(int(self.global_step)) + '.pt')
+            torch.save(weights, f'{self.arg.model_saved_name}-{epoch+1}-{int(self.global_step)}.pt')
 
     def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None, save_z=False):
         if wrong_file is not None:
@@ -371,7 +370,7 @@ class Processor():
                     cos_z_prior_value.append(cos_z_prior.data.item())
                     dis_z_prior_value.append(dis_z_prior.data.item())
                     cls_loss = self.loss(y_hat, y)
-                    loss = self.arg.alpha*mmd_loss + self.arg.beta*l2_z_mean + cls_loss
+                    loss = self.arg.lambda_2*mmd_loss + self.arg.lambda_1*l2_z_mean + cls_loss
                     score_frag.append(y_hat.data.cpu().numpy())
                     loss_value.append(loss.data.item())
                     cls_loss_value.append(cls_loss.data.item())
