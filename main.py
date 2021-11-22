@@ -63,21 +63,8 @@ class Processor():
         self.arg = arg
         self.save_arg()
         if arg.phase == 'train':
-            if not arg.debug:
-                arg.model_saved_name = os.path.join(arg.work_dir, 'runs')
-                if os.path.isdir(arg.model_saved_name):
-                    print('log_dir: ', arg.model_saved_name, 'already exist')
-                    answer = input('delete it? y/n:')
-                    if answer == 'y':
-                        shutil.rmtree(arg.model_saved_name)
-                        print('Dir removed: ', arg.model_saved_name)
-                        input('Refresh the website of tensorboard by pressing any keys')
-                    else:
-                        print('Dir not removed: ', arg.model_saved_name)
-                self.train_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'train'), 'train')
-                self.val_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'val'), 'val')
-            else:
-                self.train_writer = self.val_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'test'), 'test')
+            self.train_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'train'), 'train')
+            self.val_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'val'), 'val')
         self.global_step = 0
         # pdb.set_trace()
         self.load_model()
@@ -92,7 +79,6 @@ class Processor():
         self.best_acc_epoch = 0
 
         self.model = self.model.cuda()
-
 
         if self.arg.half:
             self.model, self.optimizer = apex.amp.initialize(
@@ -338,8 +324,8 @@ class Processor():
             for k, v in timer.items()
         }
         self.print_log(
-            '\tMean training loss: {:.4f}.  Mean training acc: {:.2f}%.'.format(np.mean(loss_value), np.mean(acc_value)*100))
-        self.print_log('\tTime consumption: [Data]{dataloader}, [Network]{model}'.format(**proportion))
+            f'\tMean training loss: {np.mean(loss_value):.4f}.  Mean training acc: {np.mean(acc_value)*100):.2f}%.')
+        self.print_log(f'\tTime consumption: [Data]{dataloader}, [Network]{model}'.format(**proportion))
 
         if save_model:
             state_dict = self.model.state_dict()
@@ -464,7 +450,7 @@ class Processor():
     def start(self):
         if self.arg.phase == 'train':
             self.print_log('Parameters:\n{}\n'.format(str(vars(self.arg))))
-            self.global_step = 0 #self.arg.start_epoch * len(self.data_loader['train']) / self.arg.batch_size
+            self.global_step = 0
             def count_parameters(model):
                 return sum(p.numel() for p in model.parameters() if p.requires_grad)
             self.print_log(f'# Parameters: {count_parameters(self.model)}')
