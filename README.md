@@ -1,18 +1,18 @@
 # InfoGCN
 Official PyTorch implementation of "InfoGCN: Representation Learning for Human Skeleton-based Action Recognition"
 
-# Abstract
+## Abstract
 ![image](src/framework.jpg)
 Human skeleton-based action recognition offers a valuable means to understand the intricacies of human behavior because it can handle the complex relationships between physical constraints and intention. Although several studies have focused on encoding a skeleton, less attention has been paid to incorporating this information into the latent representations of human action. This paper proposes a learning framework for action recognition, InfoGCN, combining a novel learning objective and encoding method. First, we design an information bottleneck-based learning objective to guide the model to learn an informative but compact latent representation. To provide discriminative information for classifying action, we introduce attention-based graph convolution that captures the context-dependent intrinsic topology of human actions. In addition, we present a multi-modal representation of the skeleton using the relative position of joints, designed to provide complementary spatial information for joints. InfoGCN surpasses the known state-of-the-art on multiple skeleton-based action recognition benchmarks with the accuracy of 93.0\% on NTU RGB+D 60 cross-subject split, 89.8\% on NTU RGB+D 120 cross-subject split, and 97.0\% on NW-UCLA.
 
-# Dependencies
+## Dependencies
 
 - Python >= 3.6
 - PyTorch >= 1.1.0
 - NVIDIA Apex
 - tqdm, tensorboardX
 
-# Data Preparation
+## Data Preparation
 
 ### Download datasets.
 
@@ -71,7 +71,7 @@ Put downloaded data into the following directory structure:
 
 
 
-# Training & Testing
+## Training & Testing
 
 ### Training
 
