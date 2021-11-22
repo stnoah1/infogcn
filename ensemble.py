@@ -22,6 +22,7 @@ def ensemble(ds, items):
             npz_data = np.load('./data/ntu/CV_aligned.npz')
             label = np.where(npz_data['y_test'] > 0)[1]
     elif 'ucla' in ds:
+        num_class=10
         npz_data = np.load('./data/ntu/CS_aligned.npz')
         label = np.where(npz_data['y_test'] > 0)[1]
     else:
@@ -69,9 +70,9 @@ if __name__ == "__main__":
     arg = parser.parse_args()
 
     item = []
-    for ckpt in arg.position_ckpts():
+    for ckpt in arg.position_ckpts:
         item.append((ckpt, 1.5))
-    for ckpt in arg.motion_ckpts():
+    for ckpt in arg.motion_ckpts:
         item.append((ckpt, 1))
 
     ensemble(arg.dataset, item)
