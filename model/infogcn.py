@@ -9,9 +9,6 @@ from torch.autograd import Variable
 from torch import linalg as LA
 
 from model.ms_tcn import MultiScale_TemporalConv as MS_TCN
-from model.ms_gcn import MultiScale_GraphConv as MS_GCN
-from model.ms_gcn import MultiHead_GraphConv as MH_GCN
-from model.port import MORT
 from einops import rearrange, repeat
 
 from utils import set_parameter_requires_grad, get_vector_property
@@ -37,15 +34,15 @@ class InfoGCN(nn.Module):
         self.to_joint_embedding = nn.Linear(in_channels, base_channel)
         self.pos_embedding = nn.Parameter(torch.randn(1, self.num_point, base_channel))
 
-        self.l2 = EncodingBlock(base_channel, base_channel,A, adaptive=adaptive)
-        self.l3 = EncodingBlock(base_channel, base_channel,A, adaptive=adaptive)
-        self.l4 = EncodingBlock(base_channel, base_channel,A, adaptive=adaptive)
-        self.l5 = EncodingBlock(base_channel, base_channel*2, A, stride=2, adaptive=adaptive)
-        self.l6 = EncodingBlock(base_channel*2, base_channel*2, A, adaptive=adaptive)
-        self.l7 = EncodingBlock(base_channel*2, base_channel*2, A, adaptive=adaptive)
-        self.l8 = EncodingBlock(base_channel*2, base_channel*4, A, stride=2, adaptive=adaptive)
-        self.l9 = EncodingBlock(base_channel*4, base_channel*4, A, adaptive=adaptive)
-        self.l10 = EncodingBlock(base_channel*4, base_channel*4, A, adaptive=adaptive)
+        self.l1 = EncodingBlock(base_channel, base_channel,A)
+        self.l2 = EncodingBlock(base_channel, base_channel,A)
+        self.l3 = EncodingBlock(base_channel, base_channel,A)
+        self.l4 = EncodingBlock(base_channel, base_channel*2, A, stride=2)
+        self.l5 = EncodingBlock(base_channel*2, base_channel*2, A)
+        self.l6 = EncodingBlock(base_channel*2, base_channel*2, A)
+        self.l7 = EncodingBlock(base_channel*2, base_channel*4, A, stride=2)
+        self.l8 = EncodingBlock(base_channel*4, base_channel*4, A)
+        self.l9 = EncodingBlock(base_channel*4, base_channel*4, A)
         self.fc = nn.Linear(base_channel*4, base_channel*4)
         self.fc_mu = nn.Linear(base_channel*4, base_channel*4)
         self.fc_logvar = nn.Linear(base_channel*4, base_channel*4)
@@ -89,6 +86,7 @@ class InfoGCN(nn.Module):
 
         x = self.data_bn(x)
         x = rearrange(x, 'n (m v c) t -> (n m) c t v', m=M, v=V).contiguous()
+        x = self.l1(x)
         x = self.l2(x)
         x = self.l3(x)
         x = self.l4(x)
@@ -97,7 +95,6 @@ class InfoGCN(nn.Module):
         x = self.l7(x)
         x = self.l8(x)
         x = self.l9(x)
-        x = self.l10(x)
 
         # N*M,C,T,V
         c_new = x.size(1)

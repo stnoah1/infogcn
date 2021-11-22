@@ -120,8 +120,8 @@ class SA_GC(nn.Module):
         A = attn * self.shared_topology.unsqueeze(0)
         for h in range(self.num_head):
             A_h = A[:, h, :, :] # (nt)vv
-            x = rearrange(x, 'n c t v -> (n t) v c')
-            z = A_h@x
+            feature = rearrange(x, 'n c t v -> (n t) v c')
+            z = A_h@feature
             z = rearrange(z, '(n t) v c-> n c t v', t=T).contiguous()
             z = self.conv_d[h](z)
             out = z + out if out is not None else z
@@ -132,9 +132,9 @@ class SA_GC(nn.Module):
 
         return out
 
-class EncodingBlcok(nn.Module):
+class EncodingBlock(nn.Module):
     def __init__(self, in_channels, out_channels, A, stride=1, residual=True):
-        super(EncodingBlcok, self).__init__()
+        super(EncodingBlock, self).__init__()
         self.agcn = SA_GC(in_channels, out_channels, A)
         self.tcn = MS_TCN(out_channels, out_channels, kernel_size=5, stride=stride,
                          dilations=[1, 2], residual=False)
