@@ -474,7 +474,8 @@ class Processor():
 
                 self.train(epoch, save_model=save_model)
 
-                self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
+                if epoch > 80:
+                    self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
 
             # test the best model
             weights_path = glob.glob(os.path.join(self.arg.work_dir, 'runs-'+str(self.best_acc_epoch)+'*'))[0]
