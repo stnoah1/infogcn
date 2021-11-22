@@ -25,7 +25,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from opts import get_parser
-from loss import LabelSmoothingCrossEntropy
+from loss import LabelSmoothingCrossEntropy, get_mmd_loss
 
 from utils import get_vector_property
 from utils import BalancedSampler as BS
@@ -114,6 +114,7 @@ class Processor():
                 p_interval=[0.5, 1],
                 bone=self.arg.use_bone,
                 vel=self.arg.use_vel,
+                random_rot=self.arg.random_rot,
                 sort=True if self.arg.balanced_sampling else False,
             )
             if self.arg.balanced_sampling:
@@ -123,14 +124,7 @@ class Processor():
                 sampler = None
                 shuffle = True
             self.data_loader['train'] = torch.utils.data.DataLoader(
-                dataset=Feeder(
-                    data_path=data_path,
-                    split='train',
-                    window_size=64,
-                    p_interval=[0.5, 1],
-                    bone=self.arg.use_bone,
-                    vel=self.arg.use_vel
-                ),
+                dataset=dt,
                 sampler=sampler,
                 batch_size=self.arg.batch_size,
                 shuffle=shuffle,
@@ -155,42 +149,8 @@ class Processor():
             worker_init_fn=init_seed)
 
     def load_model(self):
-        if self.arg.model == 'STGCN':
-            from model.baseline import Model
-            self.model = Model(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                num_set=self.arg.n_heads
-            )
-        elif self.arg.model == 'STGCN_A':
-            from model.baseline import ModelwA
-            self.model = ModelwA(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                in_channels=3,
-                drop_out=0,
-                adaptive=True,
-                num_set=self.arg.n_heads
-            )
-        elif self.arg.model == 'STGCN_VAE':
-            from model.baseline import ModelwMMD
-            self.model = ModelwMMD(
-                num_class=self.arg.num_class,
-                num_point=self.arg.num_point,
-                num_person=self.arg.num_person,
-                graph='graph.ntu_rgb_d.Graph',
-                noise_ratio=self.arg.noise_ratio,
-                in_channels=3
-            )
-        elif self.arg.model == 'SAGCN':
-            from model.baseline import SAGCN
+        if self.arg.model == 'SAGCN':
+            from model.sagcn import SAGCN
             self.model = SAGCN(
                 num_class=self.arg.num_class,
                 num_point=self.arg.num_point,
@@ -200,7 +160,8 @@ class Processor():
                 drop_out=0,
                 adaptive=True,
                 num_set=self.arg.n_heads,
-                k=self.arg.modal_idx
+                k=self.arg.modal_idx,
+                gain=self.arg.z_prior_gain
             )
         self.loss = LabelSmoothingCrossEntropy().cuda()
 
@@ -315,17 +276,18 @@ class Processor():
         self.train_writer.add_scalar('epoch', epoch, self.global_step)
         self.record_time()
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
-        process = tqdm(loader, ncols=40, total=self.arg.n_desired//self.arg.batch_size)
+        process = tqdm(loader, ncols=40)
 
-        for batch_idx, (data, label, index) in enumerate(process):
+        for batch_idx, (data, y, index) in enumerate(process):
             self.global_step += 1
             with torch.no_grad():
                 data = data.float().cuda()
-                label = label.long().cuda()
+                y = y.long().cuda()
             timer['dataloader'] += self.split_time()
 
             # forward
-            output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
+            y_hat, z = self.model(data)
+            mmd_loss, l2_z_mean, z_mean = get_mmd_loss(z, self.model.z_prior, y, self.arg.num_class)
             cos_z, dis_z = get_vector_property(z_mean)
             cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
             cos_z_value.append(cos_z.data.item())
@@ -333,7 +295,7 @@ class Processor():
             cos_z_prior_value.append(cos_z_prior.data.item())
             dis_z_prior_value.append(dis_z_prior.data.item())
 
-            cls_loss = self.loss(output, label)
+            cls_loss = self.loss(y_hat, y)
             loss = self.arg.alpha * mmd_loss + self.arg.beta * l2_z_mean + cls_loss
             # backward
             self.optimizer.zero_grad()
@@ -350,8 +312,8 @@ class Processor():
             l2_z_mean_value.append(l2_z_mean.data.item())
             timer['model'] += self.split_time()
 
-            value, predict_label = torch.max(output.data, 1)
-            acc = torch.mean((predict_label == label.data).float())
+            value, predict_label = torch.max(y_hat.data, 1)
+            acc = torch.mean((predict_label == y.data).float())
             acc_value.append(acc.data.item())
 
             timer['statistics'] += self.split_time()
@@ -385,7 +347,7 @@ class Processor():
 
             torch.save(weights, self.arg.model_saved_name + '-' + str(epoch+1) + '-' + str(int(self.global_step)) + '.pt')
 
-    def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None):
+    def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None, save_z=False):
         if wrong_file is not None:
             f_w = open(wrong_file, 'w')
         if result_file is not None:
@@ -405,34 +367,38 @@ class Processor():
             cos_z_prior_value = []
             dis_z_prior_value = []
             step = 0
+            z_list = []
             process = tqdm(self.data_loader[ln], ncols=40)
-            for batch_idx, (data, label, index) in enumerate(process):
-                label_list.append(label)
+            for batch_idx, (data, y, index) in enumerate(process):
+                label_list.append(y)
                 with torch.no_grad():
                     data = data.float().cuda()
-                    label = label.long().cuda()
-                    output, mmd_loss, l2_z_mean, z_mean = self.model(data, label)
+                    y = y.long().cuda()
+                    y_hat, z = self.model(data)
+                    if save_z:
+                        z_list.append(z.data.cpu().numpy())
+                    mmd_loss, l2_z_mean, z_mean = get_mmd_loss(z, self.model.z_prior, y, self.arg.num_class)
                     cos_z, dis_z = get_vector_property(z_mean)
                     cos_z_prior, dis_z_prior = get_vector_property(self.model.z_prior)
                     cos_z_value.append(cos_z.data.item())
                     dis_z_value.append(dis_z.data.item())
                     cos_z_prior_value.append(cos_z_prior.data.item())
                     dis_z_prior_value.append(dis_z_prior.data.item())
-                    cls_loss = self.loss(output, label)
+                    cls_loss = self.loss(y_hat, y)
                     loss = self.arg.alpha*mmd_loss + self.arg.beta*l2_z_mean + cls_loss
-                    score_frag.append(output.data.cpu().numpy())
+                    score_frag.append(y_hat.data.cpu().numpy())
                     loss_value.append(loss.data.item())
                     cls_loss_value.append(cls_loss.data.item())
                     mmd_loss_value.append(mmd_loss.data.item())
                     l2_z_mean_value.append(l2_z_mean.data.item())
 
-                    _, predict_label = torch.max(output.data, 1)
+                    _, predict_label = torch.max(y_hat.data, 1)
                     pred_list.append(predict_label.data.cpu().numpy())
                     step += 1
 
                 if wrong_file is not None or result_file is not None:
                     predict = list(predict_label.cpu().numpy())
-                    true = list(label.data.cpu().numpy())
+                    true = list(y.data.cpu().numpy())
                     for i, x in enumerate(predict):
                         if result_file is not None:
                             f_r.write(str(x) + ',' + str(true[i]) + '\n')
@@ -445,22 +411,6 @@ class Processor():
             l2_z_mean_loss = np.mean(l2_z_mean_value)
             if 'ucla' in self.arg.feeder:
                 self.data_loader[ln].dataset.sample_name = np.arange(len(score))
-            accuracy = self.data_loader[ln].dataset.top_k(score, 1)
-            if accuracy > self.best_acc:
-                self.best_acc = accuracy
-                self.best_acc_epoch = epoch + 1
-
-            print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
-            if self.arg.phase == 'train':
-                self.val_writer.add_scalar('loss', cls_loss, epoch)
-                self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
-                self.val_writer.add_scalar('l2_z_mean', l2_z_mean_loss, epoch)
-                self.val_writer.add_scalar('val_acc', accuracy, epoch)
-                self.val_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
-                self.val_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
-                self.val_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
-                self.val_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
-                wandb.log({"val_acc" : accuracy})
 
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))
@@ -475,6 +425,26 @@ class Processor():
                         self.arg.work_dir, epoch + 1, ln), 'wb') as f:
                     pickle.dump(score_dict, f)
 
+            accuracy = self.data_loader[ln].dataset.top_k(score, 1)
+            if accuracy > self.best_acc:
+                self.best_acc = accuracy
+                self.best_acc_epoch = epoch + 1
+                with open(f'{self.arg.work_dir}/best_score.pkl', 'wb') as f:
+                    pickle.dump(score_dict, f)
+
+            print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
+            if self.arg.phase == 'train':
+                self.val_writer.add_scalar('loss', cls_loss, epoch)
+                self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
+                self.val_writer.add_scalar('l2_z_mean', l2_z_mean_loss, epoch)
+                self.val_writer.add_scalar('val_acc', accuracy, epoch)
+                self.val_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
+                self.val_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
+                self.val_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
+                self.val_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
+                wandb.log({"val_acc" : accuracy})
+
+
             # acc for each class:
             label_list = np.concatenate(label_list)
             pred_list = np.concatenate(pred_list)
@@ -486,6 +456,10 @@ class Processor():
                 writer = csv.writer(f)
                 writer.writerow(each_acc)
                 writer.writerows(confusion)
+
+            if save_z:
+                z_list = np.concatenate(z_list)
+                np.savez(f'{self.arg.work_dir}/z_values.npz', z=z_list, z_prior=self.model.z_prior.cpu().numpy(), y=label_list)
 
     def start(self):
         if self.arg.phase == 'train':
@@ -500,7 +474,8 @@ class Processor():
 
                 self.train(epoch, save_model=save_model)
 
-                self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
+                if epoch > 80:
+                    self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
 
             # test the best model
             weights_path = glob.glob(os.path.join(self.arg.work_dir, 'runs-'+str(self.best_acc_epoch)+'*'))[0]
@@ -534,7 +509,7 @@ class Processor():
             self.arg.print_log = False
             self.print_log('Model:   {}.'.format(self.arg.model))
             self.print_log('Weights: {}.'.format(self.arg.weights))
-            self.eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'], wrong_file=wf, result_file=rf)
+            self.eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'], wrong_file=wf, result_file=rf, save_z=True)
             self.print_log('Done.\n')
 
 def main():
@@ -543,7 +518,7 @@ def main():
     arg = parser.parse_args()
     # initialize wandb
     wandb.init(
-        project="mmd",
+        project="mmd_new",
         entity="chibros",
         sync_tensorboard=True,
         dir=arg.log_dir
