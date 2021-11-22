@@ -73,23 +73,13 @@ Put downloaded data into the following directory structure:
 
 ### Training
 
-- Change the config file depending on what you want.
+- This is an exmaple command for training InfoGCN on NTU RGB+D 60 Cross Subject split. Please change the arguments if you want to customize the training.
 
 ```
-python main.py --config config/nturgbd120-cross-subject/default.yaml --work-dir work_dir/ntu120/csub/ctrgcn --device 0
-```
-
-- To train model on NW-UCLA with bone or motion modalities, you need to modify `data_path` in `train_feeder_args` and `test_feeder_args` to "bone" or "motion" or "bone motion", and run
-
-```
-python main.py --config config/ucla/default.yaml --work-dir work_dir/ucla/ctrgcn_xxx --device 0
-```
-
-- To train your own model, put model file `your_model.py` under `./model` and run:
-
-```
-# Example: training your own model on NTU RGB+D 120 cross subject
-python main.py --config config/nturgbd120-cross-subject/default.yaml --model model.your_model.Model --work-dir work_dir/ntu120/csub/your_model --device 0
+python main.py --model=SAGCN --half=True --batch_size=256 --test_batch_size=256 \
+    --step 90 100 --num_epoch=110 --n_heads=3 --num_worker=4 --modal_idx=0 \
+    --dataset=ntu --num_class=60 --lambda_1=1e-4 --lambda_2=1e-1 --z_prior_gain=3 \
+    --save_epoch=60 --use_vel=False --datacase=CS  --weight_decay=0.0005 \
 ```
 
 ### Testing
@@ -97,7 +87,9 @@ python main.py --config config/nturgbd120-cross-subject/default.yaml --model mod
 - To test the trained models saved in <work_dir>, run the following command:
 
 ```
-python main.py --config <work_dir>/config.yaml --work-dir <work_dir> --phase test --save-score True --weights <work_dir>/xxx.pt --device 0
+python main.py --model=SAGCN --half=True --test_batch_size=256 --n_heads=3 --num_worker=4 \
+    --modal_idx=0 --dataset=ntu --num_class=60 --use_vel=False --datacase=CS \
+    --phase=test --save_score=True --weights=<work_dir>/files/best_score.pt
 ```
 
 - To ensemble the results of different modalities, run 
