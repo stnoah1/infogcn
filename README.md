@@ -65,7 +65,7 @@ Put downloaded data into the following directory structure:
  python get_raw_skes_data.py
  # Remove the bad skeleton 
  python get_raw_denoised_data.py
- # Transform the skeleton to the center of the first frame
+ # Transform the skeleton to the center of the first frame and vertically align to the ground
  python seq_transformation.py
 ```
 
