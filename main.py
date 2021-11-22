@@ -99,7 +99,6 @@ class Processor():
                 split='train',
                 window_size=64,
                 p_interval=[0.5, 1],
-                bone=self.arg.use_bone,
                 vel=self.arg.use_vel,
                 random_rot=self.arg.random_rot,
                 sort=True if self.arg.balanced_sampling else False,
@@ -125,7 +124,6 @@ class Processor():
                 split='test',
                 window_size=64,
                 p_interval=[0.95],
-                bone=self.arg.use_bone,
                 vel=self.arg.use_vel
             ),
             batch_size=self.arg.test_batch_size,
