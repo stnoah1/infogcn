@@ -92,9 +92,17 @@ python main.py --model=SAGCN --half=True --test_batch_size=256 --n_heads=3 --num
     --phase=test --save_score=True --weights=<work_dir>/files/best_score.pt
 ```
 
-- To ensemble the results of different modalities, run 
+- To ensemble the results of different modalities, run the following command:
 ```
-python ensemble.py --datasets ntu120/xsub --joint-dir work_dir/ntu120/csub/ctrgcn --bone-dir work_dir/ntu120/csub/ctrgcn_bone --joint-motion-dir work_dir/ntu120/csub/ctrgcn_motion --bone-motion-dir work_dir/ntu120/csub/ctrgcn_bone_motion
+python ensemble.py \
+   --dataset=ntu/xsub \
+   --position_ckpts \
+   <work_dir_1>/files/best_score.pkl \
+   <work_dir_2>/files/best_score.pkl \
+   --motion_ckpts \
+   <work_dir_3>/files/best_score.pkl \
+   <work_dir_4>/files/best_score.pkl \
+
 ```
 
 <!-- ### Pretrained Models
