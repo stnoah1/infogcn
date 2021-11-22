@@ -79,7 +79,7 @@ Put downloaded data into the following directory structure:
 python main.py --model=SAGCN --half=True --batch_size=256 --test_batch_size=256 \
     --step 90 100 --num_epoch=110 --n_heads=3 --num_worker=4 --modal_idx=0 \
     --dataset=ntu --num_class=60 --lambda_1=1e-4 --lambda_2=1e-1 --z_prior_gain=3 \
-    --save_epoch=60 --use_vel=False --datacase=CS --weight_decay=0.0005 \
+    --save_epoch=60 --use_vel=False --datacase=CS --weight_decay=0.0005
 ```
 
 ### Testing
@@ -104,7 +104,6 @@ python ensemble.py \
       <work_dir_3>/files/best_score.pkl \
       <work_dir_4>/files/best_score.pkl \
       ...
-
 ```
 
 <!-- ### Pretrained Models
