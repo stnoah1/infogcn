@@ -32,7 +32,7 @@ Human skeleton-based action recognition offers a valuable means to understand th
 
 #### NW-UCLA
 
-1. Download dataset from [here](https://www.dropbox.com/s/10pcm4pksjy6mkq/all_sqe.zip?dl=0)
+1. Download dataset from CTR-GCN repo: [https://github.com/Uason-Chen/CTR-GCN](https://github.com/Uason-Chen/CTR-GCN)
 2. Move `all_sqe` to `./data/NW-UCLA`
 
 ### Data Processing
