@@ -1,4 +1,4 @@
-data
+data_temp
 *.sh
 wandb
 *_old.py
