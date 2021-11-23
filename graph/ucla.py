@@ -23,6 +23,10 @@ class Graph:
         self.outward = outward
         self.neighbor = neighbor
         self.A = self.get_adjacency_matrix(labeling_mode)
+        self.A_outward_binary = tools.get_adjacency_matrix(self.outward, self.num_node)
+        self.A_binary = tools.edge2mat(neighbor, num_node)
+        self.A_norm = tools.normalize_adjacency_matrix(self.A_binary + 2*np.eye(num_node))
+        self.A_binary_K = tools.get_k_scale_graph(scale, self.A_binary)
 
     def get_adjacency_matrix(self, labeling_mode=None):
         if labeling_mode is None:

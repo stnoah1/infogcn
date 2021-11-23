@@ -28,7 +28,7 @@ from opts import get_parser
 from loss import LabelSmoothingCrossEntropy, get_mmd_loss
 from model.infogcn import InfoGCN
 
-from utils import get_vector_property, clean_miss_aligned_skeleton
+from utils import get_vector_property
 from utils import BalancedSampler as BS
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -138,7 +138,7 @@ class Processor():
             num_class=self.arg.num_class,
             num_point=self.arg.num_point,
             num_person=self.arg.num_person,
-            graph='graph.ntu_rgb_d.Graph',
+            graph=self.arg.graph,
             in_channels=3,
             drop_out=0,
             adaptive=True,

@@ -52,6 +52,7 @@ def get_parser():
     parser.add_argument('--n_heads', type=int, default=3, help='')
     parser.add_argument('--modal_idx', type=int, default=0, help='')
     parser.add_argument('--z_prior_gain', type=int, default=3, help='')
+    parser.add_argument('--graph', type=str, default='graph.ntu_rgb_d.Graph', help='')
 
     # optim
     parser.add_argument('--base_lr', type=float, default=0.1, help='initial learning rate')
