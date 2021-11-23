@@ -141,9 +141,9 @@ class Processor():
             graph=self.arg.graph,
             in_channels=3,
             drop_out=0,
-            adaptive=True,
-            num_set=self.arg.n_heads,
-            k=self.arg.modal_idx,
+            num_head=self.arg.n_heads,
+            k=self.arg.k,
+            noise_ratio=self.arg.noise_ratio,
             gain=self.arg.z_prior_gain
         )
         self.loss = LabelSmoothingCrossEntropy().cuda()

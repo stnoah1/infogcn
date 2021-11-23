@@ -18,10 +18,10 @@ from model.modules import import_class, bn_init, EncodingBlock
 
 class InfoGCN(nn.Module):
     def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, in_channels=3,
-                 drop_out=0, adaptive=True, num_set=3, noise_ratio=0.1, k=0, gain=1):
+                 drop_out=0, num_head=3, noise_ratio=0.1, k=0, gain=1):
         super(InfoGCN, self).__init__()
 
-        A = np.stack([np.eye(num_point)] * num_set, axis=0)
+        A = np.stack([np.eye(num_point)] * num_head, axis=0)
 
         base_channel = 64
         self.num_class = num_class
