@@ -327,7 +327,7 @@ class Processor():
             state_dict = self.model.state_dict()
             weights = OrderedDict([[k.split('module.')[-1], v.cpu()] for k, v in state_dict.items()])
 
-            torch.save(weights, f'{self.arg.model_saved_name}-{epoch+1}-{int(self.global_step)}.pt')
+            torch.save(weights, f'{self.arg.work_dir}/runs-{epoch+1}-{int(self.global_step)}.pt')
 
     def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None, save_z=False):
         if wrong_file is not None:

@@ -34,7 +34,7 @@ def get_parser():
     parser.add_argument('--seed', type=int, default=1, help='random seed for pytorch')
     parser.add_argument('--log_interval', type=int, default=100, help='the interval for printing messages (#iteration)')
     parser.add_argument('--save_interval', type=int, default=1, help='the interval for storing models (#iteration)')
-    parser.add_argument('--save_epoch', type=int, default=25, help='the start epoch to save model (#iteration)')
+    parser.add_argument('--save_epoch', type=int, default=60, help='the start epoch to save model (#iteration)')
     parser.add_argument('--eval_interval', type=int, default=5, help='the interval for evaluating models (#iteration)')
     parser.add_argument('--print_log', type=str2bool, default=True, help='print logging or not')
     parser.add_argument('--show_topk', type=int, default=[1, 5], nargs='+', help='which Top K accuracy will be shown')
