@@ -44,6 +44,7 @@ def get_parser():
     parser.add_argument('--num_worker', type=int, default=8, help='the number of worker for data loader')
     parser.add_argument('--balanced_sampling', type=str2bool, default=False, help='the number of worker for data loader')
     parser.add_argument('--random_rot', type=str2bool, default=True, help='')
+    parser.add_argument('--repeat', type=int, default=1, help='the number of repeat for data')
 
     # model
     parser.add_argument('--model', default=None, help='the model will be used')
