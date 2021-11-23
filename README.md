@@ -8,9 +8,9 @@ Human skeleton-based action recognition offers a valuable means to understand th
 ## Dependencies
 
 - Python >= 3.6
-- PyTorch >= 1.1.0
+- PyTorch >= 1.7.0
 - NVIDIA Apex
-- tqdm, tensorboardX
+- tqdm, tensorboardX, wandb
 
 ## Data Preparation
 
