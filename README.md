@@ -76,10 +76,10 @@ Put downloaded data into the following directory structure:
 - This is an exmaple command for training InfoGCN on NTU RGB+D 60 Cross Subject split. Please change the arguments if you want to customize the training. `--modal_idx` indicates k value of k-th mode represenation of skeleton. If you set `--use_vel=True`, the model will be trained with motion.
 
 ```
-python main.py --model=SAGCN --half=True --batch_size=256 --test_batch_size=256 \
+python main.py --model=SAGCN --half=True --batch_size=128 --test_batch_size=128 \
     --step 90 100 --num_epoch=110 --n_heads=3 --num_worker=4 --modal_idx=0 \
     --dataset=ntu --num_class=60 --lambda_1=1e-4 --lambda_2=1e-1 --z_prior_gain=3 \
-    --save_epoch=60 --use_vel=False --datacase=CS --seed=1 --weight_decay=0.0005
+    --use_vel=False --datacase=CS --seed=1 --weight_decay=0.0005
 ```
 
 ### Testing
@@ -87,7 +87,7 @@ python main.py --model=SAGCN --half=True --batch_size=256 --test_batch_size=256 
 - To test the trained models saved in <work_dir>, run the following command:
 
 ```
-python main.py --model=SAGCN --half=True --test_batch_size=256 --n_heads=3 --num_worker=4 \
+python main.py --model=SAGCN --half=True --test_batch_size=128 --n_heads=3 --num_worker=4 \
     --modal_idx=0 --dataset=ntu --num_class=60 --use_vel=False --datacase=CS \
     --phase=test --save_score=True --weights=<path_to_weight>
 ```
