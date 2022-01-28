@@ -72,7 +72,7 @@ def get_parser():
 
     # apex
     parser.add_argument('--half', type=str2bool, default=True, help='Use half-precision (FP16) training')
-    parser.add_argument('--amp-opt-level', type=int, default=1, help='NVIDIA Apex AMP optimization level')
+    parser.add_argument('--amp_opt_level', type=int, default=1, help='NVIDIA Apex AMP optimization level')
 
     return parser
 

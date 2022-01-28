@@ -1,6 +1,5 @@
 import argparse
 import pickle
-import os
 import numpy as np
 from tqdm import tqdm
 
@@ -49,8 +48,9 @@ def ensemble(ds, items):
         r = np.argmax(r)
         right_num += int(r == int(l))
         total_num += 1
-        acc = right_num / total_num
-        acc5 = right_num_5 / total_num
+
+    acc = right_num / total_num
+    acc5 = right_num_5 / total_num
 
     print('Top1 Acc: {:.4f}%'.format(acc * 100))
     print('Top5 Acc: {:.4f}%'.format(acc5 * 100))

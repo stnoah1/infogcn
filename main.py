@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-import inspect
 import os
 import pickle
 import random
-import shutil
 import sys
 import time
 from collections import OrderedDict
@@ -17,8 +15,6 @@ import glob
 
 # torch
 import torch
-import torch.backends.cudnn as cudnn
-import torch.nn as nn
 import torch.optim as optim
 import yaml
 from tensorboardX import SummaryWriter
@@ -64,8 +60,8 @@ class Processor():
         self.arg = arg
         self.save_arg()
         if arg.phase == 'train':
-            self.train_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'train'), 'train')
-            self.val_writer = SummaryWriter(os.path.join(arg.model_saved_name, 'val'), 'val')
+            self.train_writer = SummaryWriter(os.path.join(arg.work_dir, arg.model_saved_name, 'train'), 'train')
+            self.val_writer = SummaryWriter(os.path.join(arg.work_dir, arg.model_saved_name, 'val'), 'val')
         self.global_step = 0
         # pdb.set_trace()
         self.load_model()
@@ -396,7 +392,7 @@ class Processor():
 
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))
-            self.print_log('\tMean {} loss of {} batches: {}.'.format(
+            self.print_log('\tMean {} loss of {} batches: {}:4f.'.format(
                 ln, self.arg.n_desired//self.arg.batch_size, np.mean(cls_loss_value)))
             for k in self.arg.show_topk:
                 self.print_log('\tTop{}: {:.2f}%'.format(
@@ -456,7 +452,8 @@ class Processor():
 
                 self.train(epoch, save_model=save_model)
 
-                self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
+                if epoch > 80:
+                    self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
 
             # test the best model
             weights_path = glob.glob(os.path.join(self.arg.work_dir, 'runs-'+str(self.best_acc_epoch)+'*'))[0]
