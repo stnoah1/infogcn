@@ -9,7 +9,6 @@ import time
 from collections import OrderedDict
 import traceback
 from sklearn.metrics import confusion_matrix
-import csv
 import numpy as np
 import glob
 
@@ -17,7 +16,6 @@ import glob
 import torch
 import torch.optim as optim
 import yaml
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from opts import get_parser
@@ -59,9 +57,6 @@ class Processor():
     def __init__(self, arg):
         self.arg = arg
         self.save_arg()
-        if arg.phase == 'train':
-            self.train_writer = SummaryWriter(os.path.join(arg.work_dir, arg.model_saved_name, 'train'), 'train')
-            self.val_writer = SummaryWriter(os.path.join(arg.work_dir, arg.model_saved_name, 'val'), 'val')
         self.global_step = 0
         # pdb.set_trace()
         self.load_model()
@@ -71,20 +66,21 @@ class Processor():
         else:
             self.load_optimizer()
             self.load_data()
-        self.lr = self.arg.base_lr
         self.best_acc = 0
         self.best_acc_epoch = 0
 
-        self.model = self.model.cuda()
+        model = self.model.cuda()
 
         if self.arg.half:
             self.model, self.optimizer = apex.amp.initialize(
-                self.model,
+                model,
                 self.optimizer,
                 opt_level=f'O{self.arg.amp_opt_level}'
             )
             if self.arg.amp_opt_level != 1:
                 self.print_log('[WARN] nn.DataParallel is not yet supported by amp_opt_level != "O1"')
+
+        # self.model = torch.nn.DataParallel(model, device_ids=(0,1,2))
 
     def load_data(self):
         Feeder = import_class(self.arg.feeder)
@@ -240,7 +236,6 @@ class Processor():
     def train(self, epoch, save_model=False):
         self.model.train()
         self.print_log('Training epoch: {}'.format(epoch + 1))
-        loader = self.data_loader['train']
         self.adjust_learning_rate(epoch)
 
         loss_value = []
@@ -252,12 +247,10 @@ class Processor():
         cos_z_prior_value = []
         dis_z_prior_value = []
 
-        self.train_writer.add_scalar('epoch', epoch, self.global_step)
         self.record_time()
         timer = dict(dataloader=0.001, model=0.001, statistics=0.001)
-        process = tqdm(loader, ncols=40)
 
-        for batch_idx, (data, y, index) in enumerate(process):
+        for data, y, index in tqdm(self.data_loader['train'], dynamic_ncols=True):
             self.global_step += 1
             with torch.no_grad():
                 data = data.float().cuda()
@@ -297,19 +290,17 @@ class Processor():
 
             timer['statistics'] += self.split_time()
 
-        self.train_writer.add_scalar('acc', np.mean(acc_value), epoch)
-        self.train_writer.add_scalar('loss', np.mean(loss_value), epoch)
-        self.train_writer.add_scalar('mmd_loss', np.mean(mmd_loss_value), epoch)
-        self.train_writer.add_scalar('l2_z_mean', np.mean(l2_z_mean_value), epoch)
-
-        self.train_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
-        self.train_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
-        self.train_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
-        self.train_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
-
-        # statistics
-        self.lr = self.optimizer.param_groups[0]['lr']
-        self.train_writer.add_scalar('lr', self.lr, epoch)
+        wandb.log({
+            'train/acc': np.mean(acc_value),
+            'train/loss': np.mean(loss_value),
+            'train/mmd_loss': np.mean(mmd_loss_value),
+            'train/l2_z_mean': np.mean(l2_z_mean_value),
+            'train/z_cos': np.mean(cos_z_value),
+            'train/z_dist': np.mean(dis_z_value),
+            'train/z_prior_cos': np.mean(cos_z_prior_value),
+            'train/z_prior_dist': np.mean(dis_z_prior_value),
+            'lr': self.optimizer.param_groups[0]['lr']
+        })
 
         # statistics of time consumption and loss
         proportion = {
@@ -346,8 +337,7 @@ class Processor():
             dis_z_prior_value = []
             step = 0
             z_list = []
-            process = tqdm(self.data_loader[ln], ncols=40)
-            for batch_idx, (data, y, index) in enumerate(process):
+            for data, y, index in tqdm(self.data_loader[ln], dynamic_ncols=True):
                 label_list.append(y)
                 with torch.no_grad():
                     data = data.float().cuda()
@@ -392,7 +382,7 @@ class Processor():
 
             score_dict = dict(
                 zip(self.data_loader[ln].dataset.sample_name, score))
-            self.print_log('\tMean {} loss of {} batches: {}:4f.'.format(
+            self.print_log('\tMean {} loss of {} batches: {:4f}.'.format(
                 ln, self.arg.n_desired//self.arg.batch_size, np.mean(cls_loss_value)))
             for k in self.arg.show_topk:
                 self.print_log('\tTop{}: {:.2f}%'.format(
@@ -412,28 +402,21 @@ class Processor():
 
             print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
             if self.arg.phase == 'train':
-                self.val_writer.add_scalar('loss', cls_loss, epoch)
-                self.val_writer.add_scalar('mmd_loss', mmd_loss, epoch)
-                self.val_writer.add_scalar('l2_z_mean', l2_z_mean_loss, epoch)
-                self.val_writer.add_scalar('val_acc', accuracy, epoch)
-                self.val_writer.add_scalar('z_cos', np.mean(cos_z_value), epoch)
-                self.val_writer.add_scalar('z_dist', np.mean(dis_z_value), epoch)
-                self.val_writer.add_scalar('z_prior_cos', np.mean(cos_z_prior_value), epoch)
-                self.val_writer.add_scalar('z_prior_dist', np.mean(dis_z_prior_value), epoch)
-                wandb.log({"val_acc" : accuracy})
+                wandb.log({
+                    'val/loss': cls_loss,
+                    'val/mmd_loss': mmd_loss,
+                    'val/l2_z_mean': l2_z_mean_loss,
+                    'val/acc': accuracy,
+                    'val/z_cos': np.mean(cos_z_value),
+                    'val/z_dist': np.mean(dis_z_value),
+                    'val/z_prior_cos': np.mean(cos_z_prior_value),
+                    'val/z_prior_dist': np.mean(dis_z_prior_value),
+                })
 
 
             # acc for each class:
             label_list = np.concatenate(label_list)
             pred_list = np.concatenate(pred_list)
-            confusion = confusion_matrix(label_list, pred_list)
-            list_diag = np.diag(confusion)
-            list_raw_sum = np.sum(confusion, axis=1)
-            each_acc = list_diag / list_raw_sum
-            with open('{}/epoch{}_{}_each_class_acc.csv'.format(self.arg.work_dir, epoch + 1, ln), 'w') as f:
-                writer = csv.writer(f)
-                writer.writerow(each_acc)
-                writer.writerows(confusion)
 
             if save_z:
                 z_list = np.concatenate(z_list)
@@ -452,8 +435,8 @@ class Processor():
 
                 self.train(epoch, save_model=save_model)
 
-                if epoch > 80:
-                    self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
+                # if epoch > 80:
+                self.eval(epoch, save_score=self.arg.save_score, loader_name=['test'])
 
             # test the best model
             weights_path = glob.glob(os.path.join(self.arg.work_dir, 'runs-'+str(self.best_acc_epoch)+'*'))[0]
@@ -496,9 +479,7 @@ def main():
     arg = parser.parse_args()
     # initialize wandb
     wandb.init(
-        project="mmd_new",
-        entity="chibros",
-        sync_tensorboard=True,
+        project="infogcn",
         dir=arg.log_dir
     )
     arg.work_dir = wandb.run.dir
