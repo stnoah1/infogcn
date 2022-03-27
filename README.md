@@ -3,7 +3,7 @@ Official PyTorch implementation of "InfoGCN: Representation Learning for Human S
 
 ## Abstract
 <img src="resources/main_fig.png" width="600" />
-Human skeleton-based action recognition offers a valuable means to understand the intricacies of human behavior because it can handle the complex relationships between physical constraints and intention. Although several studies have focused on encoding a skeleton, less attention has been paid to incorporating this information into the latent representations of human action. This paper proposes a learning framework for action recognition, InfoGCN, combining a novel learning objective and encoding method. First, we design an information bottleneck-based learning objective to guide the model to learn an informative but compact latent representation. To provide discriminative information for classifying action, we introduce attention-based graph convolution that captures the context-dependent intrinsic topology of human actions. In addition, we present a multi-modal representation of the skeleton using the relative position of joints, designed to provide complementary spatial information for joints. InfoGCN surpasses the known state-of-the-art on multiple skeleton-based action recognition benchmarks with the accuracy of 93.0\% on NTU RGB+D 60 cross-subject split, 89.8\% on NTU RGB+D 120 cross-subject split, and 97.0\% on NW-UCLA.
+Human skeleton-based action recognition offers a valuable means to understand the intricacies of human behavior because it can handle the complex relationships between physical constraints and intention. Although several studies have focused on encoding a skeleton, less attention has been paid to embed this information into the latent representations of human action. InfoGCN proposes a learning framework for action recognition combining a novel learning objective and an encoding method. First, we design an information bottleneck-based learning objective to guide the model to learn informative but compact latent representations. To provide discriminative information for classifying action, we introduce attention-based graph convolution that captures the context-dependent intrinsic topology of human action. In addition, we present a multi-modal representation of the skeleton using the relative position of joints, designed to provide complementary spatial information for joints. InfoGCN surpasses the known state-of-the-art on multiple skeleton-based action recognition benchmarks with the accuracy of 93.0% on NTU RGB+D 60 cross-subject split, 89.8% on NTU RGB+D 120 cross-subject split, and 97.0% on NW-UCLA.
 
 ## Dependencies
 
@@ -79,7 +79,7 @@ Put downloaded data into the following directory structure:
 python main.py --half=True --batch_size=128 --test_batch_size=128 \
     --step 90 100 --num_epoch=110 --n_heads=3 --num_worker=4 --k=1 \
     --dataset=ntu --num_class=60 --lambda_1=1e-4 --lambda_2=1e-1 --z_prior_gain=3 \
-    --use_vel=False --datacase=CS --seed=1 --weight_decay=0.0005 \
+    --use_vel=False --datacase=CS --weight_decay=0.0005 \
     --num_person=2 --num_point=25 --graph=graph.ntu_rgb_d.Graph --feeder=feeders.feeder_ntu.Feeder
 ```
 
@@ -89,7 +89,7 @@ python main.py --half=True --batch_size=128 --test_batch_size=128 \
 
 ```
 python main.py --half=True --test_batch_size=128 --n_heads=3 --num_worker=4 \
-    --modal_idx=0 --dataset=ntu --num_class=60 --use_vel=False --datacase=CS \
+    --k=1 --dataset=ntu --num_class=60 --use_vel=False --datacase=CS \
     --num_person=2 --num_point=25 --graph=graph.ntu_rgb_d.Graph --feeder=feeders.feeder_ntu.Feeder \
     --phase=test --save_score=True --weights=<path_to_weight>
 ```
