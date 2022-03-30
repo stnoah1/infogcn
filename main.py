@@ -194,9 +194,6 @@ class Processor():
         arg_dict = vars(self.arg)
         if not os.path.exists(self.arg.work_dir):
             os.makedirs(self.arg.work_dir)
-        with open('{}/config.yaml'.format(self.arg.work_dir), 'w') as f:
-            f.write(f"# command line: {' '.join(sys.argv)}\n\n")
-            yaml.dump(arg_dict, f)
 
     def adjust_learning_rate(self, epoch):
         if self.arg.optimizer == 'SGD' or self.arg.optimizer == 'Adam':
@@ -316,11 +313,7 @@ class Processor():
 
             torch.save(weights, f'{self.arg.work_dir}/runs-{epoch+1}-{int(self.global_step)}.pt')
 
-    def eval(self, epoch, save_score=False, loader_name=['test'], wrong_file=None, result_file=None, save_z=False):
-        if wrong_file is not None:
-            f_w = open(wrong_file, 'w')
-        if result_file is not None:
-            f_r = open(result_file, 'w')
+    def eval(self, epoch, save_score=False, loader_name=['test'], save_z=False):
         self.model.eval()
         self.print_log('Eval epoch: {}'.format(epoch + 1))
         for ln in loader_name:
@@ -430,8 +423,7 @@ class Processor():
                 return sum(p.numel() for p in model.parameters() if p.requires_grad)
             self.print_log(f'# Parameters: {count_parameters(self.model)}')
             for epoch in range(self.arg.start_epoch, self.arg.num_epoch):
-                save_model = (((epoch + 1) % self.arg.save_interval == 0) or (
-                        epoch + 1 == self.arg.num_epoch)) and (epoch+1) > self.arg.save_epoch
+                save_model = (epoch + 1 == self.arg.num_epoch) and (epoch + 1 > self.arg.save_epoch)
 
                 self.train(epoch, save_model=save_model)
 
@@ -443,10 +435,8 @@ class Processor():
             weights = torch.load(weights_path)
             self.model.load_state_dict(weights)
 
-            wf = weights_path.replace('.pt', '_wrong.txt')
-            rf = weights_path.replace('.pt', '_right.txt')
             self.arg.print_log = False
-            self.eval(epoch=0, save_score=True, loader_name=['test'], wrong_file=wf, result_file=rf)
+            self.eval(epoch=0, save_score=True, loader_name=['test'])
             self.arg.print_log = True
 
 
@@ -462,15 +452,12 @@ class Processor():
             self.print_log(f'seed: {self.arg.seed}')
 
         elif self.arg.phase == 'test':
-            wf = self.arg.weights.replace('.pt', '_wrong.txt')
-            rf = self.arg.weights.replace('.pt', '_right.txt')
-
             if self.arg.weights is None:
                 raise ValueError('Please appoint --weights.')
             self.arg.print_log = False
             self.print_log('Model:   {}.'.format(self.arg.model))
             self.print_log('Weights: {}.'.format(self.arg.weights))
-            self.eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'], wrong_file=wf, result_file=rf, save_z=True)
+            self.eval(epoch=0, save_score=self.arg.save_score, loader_name=['test'], save_z=True)
             self.print_log('Done.\n')
 
 def main():
