@@ -18,7 +18,7 @@ import torch.optim as optim
 import yaml
 from tqdm import tqdm
 
-from opts import get_parser
+from args import get_parser
 from loss import LabelSmoothingCrossEntropy, get_mmd_loss
 from model.infogcn import InfoGCN
 
