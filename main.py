@@ -2,34 +2,34 @@
 from __future__ import print_function
 
 import os
-import pickle
-import random
 import sys
 import time
-from collections import OrderedDict
-import traceback
-from sklearn.metrics import confusion_matrix
-import numpy as np
 import glob
+import yaml
+import pickle
+import random
+import traceback
+import resource
 
-# torch
+from collections import OrderedDict
+
+import apex
+import wandb
 import torch
 import torch.optim as optim
-import yaml
+import numpy as np
+
 from tqdm import tqdm
+from sklearn.metrics import confusion_matrix
 
 from args import get_parser
 from loss import LabelSmoothingCrossEntropy, get_mmd_loss
 from model.infogcn import InfoGCN
-
 from utils import get_vector_property
 from utils import BalancedSampler as BS
-import resource
+
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
 resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
-
-import apex
-import wandb
 
 def init_seed(seed):
     torch.cuda.manual_seed_all(seed)
