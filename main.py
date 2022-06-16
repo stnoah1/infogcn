@@ -5,7 +5,6 @@ import os
 import sys
 import time
 import glob
-import yaml
 import pickle
 import random
 import traceback
