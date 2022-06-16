@@ -1,5 +1,5 @@
 # InfoGCN
-Official PyTorch implementation of "InfoGCN: Representation Learning for Human Skeleton-based Action Recognition", CVPR22.
+Official PyTorch implementation of "[InfoGCN: Representation Learning for Human Skeleton-based Action Recognition](https://openaccess.thecvf.com/content/CVPR2022/html/Chi_InfoGCN_Representation_Learning_for_Human_Skeleton-Based_Action_Recognition_CVPR_2022_paper.html)", CVPR22.
 
 ## Abstract
 <img src="resources/main_fig.png" width="600" />
