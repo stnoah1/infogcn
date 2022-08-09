@@ -7,7 +7,7 @@ import math
 from torch.utils.data import Dataset
 
 class Feeder(Dataset):
-    def __init__(self, data_path, split=None, p_interval=None, repeat=1, random_choose=False, random_shift=False, random_move=False, random_rot=False,
+    def __init__(self, data_path, split=None, p_interval=None, repeat=5, random_choose=False, random_shift=False, random_move=False, random_rot=False,
                  window_size=-1, normalization=False, debug=False, use_mmap=True, bone=False, vel=False, sort=False):
 
         if 'test' in split:
