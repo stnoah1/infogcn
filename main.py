@@ -13,7 +13,6 @@ import resource
 from collections import OrderedDict
 
 import apex
-import wandb
 import torch
 import torch.optim as optim
 import numpy as np
@@ -286,18 +285,6 @@ class Processor():
 
             timer['statistics'] += self.split_time()
 
-        wandb.log({
-            'train/acc': np.mean(acc_value),
-            'train/loss': np.mean(loss_value),
-            'train/mmd_loss': np.mean(mmd_loss_value),
-            'train/l2_z_mean': np.mean(l2_z_mean_value),
-            'train/z_cos': np.mean(cos_z_value),
-            'train/z_dist': np.mean(dis_z_value),
-            'train/z_prior_cos': np.mean(cos_z_prior_value),
-            'train/z_prior_dist': np.mean(dis_z_prior_value),
-            'lr': self.optimizer.param_groups[0]['lr']
-        })
-
         # statistics of time consumption and loss
         proportion = {
             k: '{:02d}%'.format(int(round(v * 100 / sum(timer.values()))))
@@ -356,14 +343,6 @@ class Processor():
                     pred_list.append(predict_label.data.cpu().numpy())
                     step += 1
 
-                if wrong_file is not None or result_file is not None:
-                    predict = list(predict_label.cpu().numpy())
-                    true = list(y.data.cpu().numpy())
-                    for i, x in enumerate(predict):
-                        if result_file is not None:
-                            f_r.write(str(x) + ',' + str(true[i]) + '\n')
-                        if x != true[i] and wrong_file is not None:
-                            f_w.write(str(index[i]) + ',' + str(x) + ',' + str(true[i]) + '\n')
             score = np.concatenate(score_frag)
             loss = np.mean(loss_value)
             cls_loss = np.mean(cls_loss_value)
@@ -393,19 +372,6 @@ class Processor():
                     pickle.dump(score_dict, f)
 
             print('Accuracy: ', accuracy, ' model: ', self.arg.model_saved_name)
-            if self.arg.phase == 'train':
-                wandb.log({
-                    'val/loss': cls_loss,
-                    'val/mmd_loss': mmd_loss,
-                    'val/l2_z_mean': l2_z_mean_loss,
-                    'val/acc': accuracy,
-                    'val/z_cos': np.mean(cos_z_value),
-                    'val/z_dist': np.mean(dis_z_value),
-                    'val/z_prior_cos': np.mean(cos_z_prior_value),
-                    'val/z_prior_dist': np.mean(dis_z_prior_value),
-                })
-
-
             # acc for each class:
             label_list = np.concatenate(label_list)
             pred_list = np.concatenate(pred_list)
@@ -463,13 +429,7 @@ def main():
     # parser arguments
     parser = get_parser()
     arg = parser.parse_args()
-    # initialize wandb
-    wandb.init(
-        project="infogcn",
-        dir=arg.log_dir
-    )
-    arg.work_dir = wandb.run.dir
-    wandb.config.update(arg)
+    arg.work_dir = f"results/{arg.dataset}_{arg.datacase}"
     init_seed(arg.seed)
     # execute process
     processor = Processor(arg)
