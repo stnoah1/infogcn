@@ -243,4 +243,4 @@ if __name__ == '__main__':
     for evaluation in evaluations:
         split_dataset(skes_joints, label, performer, camera, evaluation, save_path)
 
-    create_aligned_dataset(file_list=['data/ntu/NTU60_CS.npz', 'data/ntu/NTU60_CV.npz'])
+    create_aligned_dataset(file_list=['NTU60_CS.npz', 'NTU60_CV.npz'])
