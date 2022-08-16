@@ -245,4 +245,4 @@ if __name__ == '__main__':
     evaluations = ['CSet', 'CSub']
     for evaluation in evaluations:
         split_dataset(skes_joints, label, performer, setup, evaluation, save_path)
-    create_aligned_dataset(file_list=['data/ntu/NTU120_CSet.npz', 'data/ntu/NTU120_Csub.npz'])
+    create_aligned_dataset(file_list=['NTU120_CSet.npz', 'NTU120_Csub.npz'])
