@@ -1,5 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+import sys
+sys.path.append(['../..'])
 import os
 import os.path as osp
 import numpy as np
