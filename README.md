@@ -80,7 +80,7 @@ Put downloaded data into the following directory structure:
 python main.py --half=True --batch_size=128 --test_batch_size=128 \
     --step 90 100 --num_epoch=110 --n_heads=3 --num_worker=4 --k=0 \
     --dataset=ntu --num_class=60 --lambda_1=1e-4 --lambda_2=1e-1 --z_prior_gain=3 \
-    --use_vel=False --datacase=CS --weight_decay=0.0005 \
+    --use_vel=False --datacase=NTU60_CS --weight_decay=0.0005 \
     --num_person=2 --num_point=25 --graph=graph.ntu_rgb_d.Graph --feeder=feeders.feeder_ntu.Feeder
 ```
 
@@ -90,7 +90,7 @@ python main.py --half=True --batch_size=128 --test_batch_size=128 \
 
 ```
 python main.py --half=True --test_batch_size=128 --n_heads=3 --num_worker=4 \
-    --k=0 --dataset=ntu --num_class=60 --use_vel=False --datacase=CS \
+    --k=0 --dataset=ntu --num_class=60 --use_vel=False --datacase=NTU60_CS \
     --num_person=2 --num_point=25 --graph=graph.ntu_rgb_d.Graph --feeder=feeders.feeder_ntu.Feeder \
     --phase=test --save_score=True --weights=<path_to_weight>
 ```
