@@ -51,13 +51,15 @@ class Feeder(Dataset):
         if self.split == 'train':
             self.data = npz_data['x_train']
             self.label = np.argmax(npz_data['y_train'], axis=-1)
-            self.sample_name = ['train_' + str(i) for i in range(len(self.data))]
         elif self.split == 'test':
             self.data = npz_data['x_test']
             self.label = np.argmax(npz_data['y_test'], axis=-1)
-            self.sample_name = ['test_' + str(i) for i in range(len(self.data))]
         else:
             raise NotImplementedError('data split only supports train/test')
+        nan_out = np.isnan(self.data.mean(-1).mean(-1))==False
+        self.data = self.data[nan_out]
+        self.label = self.label[nan_out]
+        self.sample_name = [self.split + '_' + str(i) for i in range(len(self.data))]
         N, T, _ = self.data.shape
         self.data = self.data.reshape((N, T, 2, 25, 3)).transpose(0, 4, 1, 3, 2)
 
