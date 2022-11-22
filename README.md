@@ -1,5 +1,8 @@
 # InfoGCN
 Official PyTorch implementation of "[InfoGCN: Representation Learning for Human Skeleton-based Action Recognition](https://openaccess.thecvf.com/content/CVPR2022/html/Chi_InfoGCN_Representation_Learning_for_Human_Skeleton-Based_Action_Recognition_CVPR_2022_paper.html)", CVPR22.
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/infogcn-representation-learning-for-human/skeleton-based-action-recognition-on-n-ucla)](https://paperswithcode.com/sota/skeleton-based-action-recognition-on-n-ucla?p=infogcn-representation-learning-for-human)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/infogcn-representation-learning-for-human/skeleton-based-action-recognition-on-ntu-rgbd)](https://paperswithcode.com/sota/skeleton-based-action-recognition-on-ntu-rgbd?p=infogcn-representation-learning-for-human)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/infogcn-representation-learning-for-human/skeleton-based-action-recognition-on-ntu-rgbd-1)](https://paperswithcode.com/sota/skeleton-based-action-recognition-on-ntu-rgbd-1?p=infogcn-representation-learning-for-human)
 
 ## Abstract
 <img src="resources/main_fig.png" width="600" />
